@@ -54,4 +54,15 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <!-- The helper is a separate process, so it must also land in the publish folder. -->
+  <Target Name="PublishControlHelper" AfterTargets="Publish" Condition="Exists('$(ControlHelperOutputDir)')">
+    <ItemGroup>
+      <ControlHelperPublishFiles Include="$(ControlHelperOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ControlHelperPublishFiles)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Published control helper to $(PublishDir)" />
+  </Target>
+
 </Project>

@@ -164,11 +164,95 @@ Application smoke test PASSED (26 checks).
 | 多节点 MSBuild 不可用（命名管道受限） | `dotnet build <sln>` 默认多节点会失败 | `scripts/env.ps1` 统一 `-m:1 -nodeReuse:false`，已在脚本中固定 |
 | 脚本执行策略 | 无法直接 `.\scripts\*.ps1` | 文档统一给出 `-ExecutionPolicy Bypass -File` 形式 |
 
-## 6. 复现全部验证
+## 6. 打包与发行验证
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Portable
+```
+
+产物（`artifacts\`）：
+
+| 产物 | 体积 | 说明 |
+|---|---|---|
+| `LocalAIModelManager-0.1.0-win-x64\` | 1.2 MiB | 框架依赖包，含 demo 引擎 |
+| `LocalAIModelManager-0.1.0-win-x64.zip` | 0.5 MiB | 同上（18 个条目） |
+| `LocalAIModelManager-0.1.0-win-x64-portable\` | 201.0 MiB | 私有 .NET 运行时 + `Start.cmd` |
+| `LocalAIModelManager-0.1.0-win-x64-portable.zip` | 83.1 MiB | 同上（643 个条目） |
+
+### 6.1 打包产物本身跑通全部 26 项端到端检查
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild `
+  -AppExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe" `
+  -MockEngineExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\engines\mock\llama-server.exe"
+
+  ...
+  PASS  the model was reloaded on demand
+  PASS  a fresh engine process is running again
+  PASS  no log file was written to disk
+  PASS  no engine process survived the application exit
+
+Application smoke test PASSED (26 checks).
+```
+
+免安装版同样跑通 26/26（`-AppExecutable ...-portable\LocalAIModelManager.exe`，
+并预先设置 `DOTNET_ROOT=<bundle>\dotnet`）。
+
+### 6.2 免安装版确实使用随包的私有运行时
+
+不靠"看起来能跑"，而是检查运行中的进程实际加载了哪些模块：
+
+```
+=== module origins ===
+  [PRIVATE BUNDLE ] ...\portable\dotnet\host\fxr\10.0.4\hostfxr.dll
+  [PRIVATE BUNDLE ] ...\portable\dotnet\shared\Microsoft.NETCore.App\10.0.4\hostpolicy.dll
+  [PRIVATE BUNDLE ] ...\portable\dotnet\shared\Microsoft.NETCore.App\10.0.4\coreclr.dll
+  [PRIVATE BUNDLE ] ...\portable\dotnet\shared\Microsoft.NETCore.App\10.0.4\System.Private.CoreLib.dll
+  [PRIVATE BUNDLE ] ...\portable\dotnet\shared\Microsoft.WindowsDesktop.App\10.0.4\PresentationFramework.dll
+  [PRIVATE BUNDLE ] ...\portable\dotnet\shared\Microsoft.AspNetCore.App\10.0.4\Microsoft.AspNetCore.Server.Kestrel.Core.dll
+resolved from private bundle: 6 / 6
+```
+
+`dotnet --list-runtimes` 对私有运行时也只报告随包的三个共享框架：
+
+```
+Microsoft.AspNetCore.App 10.0.4 [<bundle>\dotnet\shared\Microsoft.AspNetCore.App]
+Microsoft.NETCore.App 10.0.4     [<bundle>\dotnet\shared\Microsoft.NETCore.App]
+Microsoft.WindowsDesktop.App 10.0.4 [<bundle>\dotnet\shared\Microsoft.WindowsDesktop.App]
+```
+
+### 6.3 ZIP 结构校验
+
+两份 ZIP 的条目名全部使用规范的正斜杠（0 个反斜杠），且关键文件齐备：
+`LocalAIModelManager.exe`、`LocalAIModelManager.ControlHelper.exe`、
+`engines/mock/llama-server.exe`、`README-FIRST.txt`，免安装版另含
+`Start.cmd`、`dotnet/dotnet.exe`、`dotnet/host/fxr/10.0.4/hostfxr.dll`、
+`dotnet/shared/{NETCore,WindowsDesktop,AspNetCore}.App/10.0.4/...`。
+
+### 6.4 打包过程中的两个真实缺陷（已修复）
+
+1. **手工构造 `includedFrameworks` 让「自带运行时」看起来可行，实际不可行**：
+   apphost 是否为自包含在 **apphost 编译期**由 SDK 决定（需要 runtime pack，
+   本机无外网拿不到）。实测报
+   `The library 'hostpolicy.dll' ... was not found`。
+   改为**私有 .NET 运行时 + `Start.cmd` 设置 `DOTNET_ROOT`**，这是受支持的方案，
+   并已用上面的模块来源检查证明生效。
+2. **ZIP 条目分隔符**：Windows PowerShell 5.1 的 `Compress-Archive` 与
+   .NET Framework 的 `ZipFile.CreateFromDirectory` 都会写反斜杠条目名（非规范 ZIP）。
+   改为逐条目写入并把 `\` 规范化为 `/`。
+
+## 7. 复现全部验证
 
 ```powershell
 cd LocalAIModelManager
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\acceptance.ps1 -NoBuild
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild
+
+# 打包并对打包产物做同样的端到端验证
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Portable
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild `
+  -AppExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe" `
+  -MockEngineExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\engines\mock\llama-server.exe"
 ```
+

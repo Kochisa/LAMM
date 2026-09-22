@@ -12,26 +12,64 @@ Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API �
 
 ---
 
-## 1. 快速开始
+## 1. 直接运行已编译好的软件
+
+打包产物在 `artifacts\` 下，两种形态：
+
+| 产物 | 体积 | 目标机器要求 | 启动方式 |
+|---|---|---|---|
+| `LocalAIModelManager-0.1.0-win-x64\`（+ `.zip`） | 约 1.2 MB | 需安装 **.NET 10 Desktop Runtime + ASP.NET Core Runtime** | 双击 `LocalAIModelManager.exe` |
+| `LocalAIModelManager-0.1.0-win-x64-portable\`（+ `.zip`） | 约 201 MB（zip 83 MB） | **无需安装任何 .NET 组件** | 双击 **`Start.cmd`** |
+
+```
+# 非 portable 版：目标机器需要 .NET 10 运行时
+LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe
+
+# 免安装版：Start.cmd 会把 DOTNET_ROOT 指向随包的私有 .NET 运行时
+LocalAIModelManager-0.1.0-win-x64-portable\Start.cmd
+```
+
+两个目录里都带了一个**离线演示引擎**（`engines\mock\llama-server.exe`），
+即使机器上完全没有 llama.cpp，也能立刻完整体验
+「按需加载 → 流式返回 → 空闲卸载 → 重新加载」的全流程（见 §4）。
+
+### 重新打包
 
 ```powershell
-# 构建（沙箱/受限环境请使用 -ExecutionPolicy Bypass）
+# 只打小体积的框架依赖包
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1
+
+# 同时打免安装版（把本机已安装的 .NET 10 运行时作为私有运行时一起打包）
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Portable
+
+# 指定版本号 / 跳过压缩
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 -Version 0.2.0 -NoZip
+```
+
+## 2. 从源码构建
+
+```powershell
+# 构建
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# 运行桌面应用
+# 直接运行开发版
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
 
-# 内核单元 + 验收测试（24 项，离线）
+# 内核单元 + 验收测试（25 项，离线）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\acceptance.ps1
 
 # 对真实 exe 的端到端冒烟（26 项，离线）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1
+
+# 对打包产物做同样的端到端验证
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild `
+  -AppExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe"
 ```
 
 首次启动会自动生成 API Key 并写入
 `%APPDATA%\LocalAIModelManager\settings.json`。可用环境变量 `LAMM_CONFIG_DIR` 改配置目录。
 
-## 2. 接上真实的 llama.cpp
+## 3. 接上真实的 llama.cpp
 
 1. 下载/解压任意 llama.cpp 发行版（Windows CUDA/Vulkan/CPU 均可）。
 2. 打开 **设置 → 推理引擎 → 添加引擎…**，指向该目录下的 `llama-server.exe`
@@ -44,7 +82,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1
 升级引擎：把新版本解压到别的目录 → 新增一条引擎记录 → 在模型里改指过去即可。
 **删除引擎或模型记录都不会删除磁盘上的任何文件。**
 
-## 3. 客户端接入
+## 4. 用离线演示引擎先跑通全流程
+
+1. **设置 → 推理引擎 → 添加引擎…**，可执行文件指向
+   `<安装目录>\engines\mock\llama-server.exe`，保存后点「重新探测」。
+2. **模型 → 添加模型…**，任选一个 `.gguf` 文件
+   （演示引擎不读取内容，只要求文件存在）。
+3. 到 **API 集成** 页复制 curl / Python / PowerShell 示例直接调用。
+
+## 5. 客户端接入
 
 ```text
 Base URL:  http://127.0.0.1:8080/v1
@@ -82,7 +128,7 @@ for chunk in stream:
 
 「API 集成」页会根据当前设置实时生成 Python / curl / PowerShell 示例，可一键复制。
 
-## 4. 端点
+## 6. 端点
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -94,7 +140,7 @@ for chunk in stream:
 | GET | `/v1/internal/status` | 运行状态 JSON（网关/模型/进程/引擎/资源） |
 | GET | `/health` | 健康检查（无需鉴权） |
 
-## 5. 安全默认值
+## 7. 安全默认值
 
 | 项 | 默认 |
 |---|---|
@@ -105,7 +151,7 @@ for chunk in stream:
 | 日志 | 只驻留内存；默认不记录提示词/输出/鉴权头；只有「保存」才写盘 |
 | 开机启动 | 关闭；启动命令**永不含**加载模型的开关，重启后所有模型仍待机 |
 
-## 6. 页面
+## 8. 页面
 
 ```
 模型      模型
@@ -116,23 +162,27 @@ for chunk in stream:
 
 托盘图标支持显示/隐藏窗口、逐个模型启动/停止/重启、卸载全部模型、按当前设置重启网关、退出。
 
-## 7. 项目结构
+## 9. 项目结构
 
 见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)；验收证据见 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)。
 
 ```
-src/LocalAIModelManager.Core/        UI 无关的核心（网关 / 生命周期 / 适配器 / 进程 / 配置 / 日志 / 资源）
-src/LocalAIModelManager.App/         WPF 桌面应用（12 个页面 + 托盘）
-src/LocalAIModelManager.MockEngine/  离线用的假 llama-server（CLI + OpenAI 兼容 HTTP）
-src/LocalAIModelManager.ControlHelper/ 一次性助手：向引擎控制台投递 CTRL_BREAK
-tests/LocalAIModelManager.Tests/     自带断言框架的单元 + 验收测试
-scripts/                             构建 / 运行 / 测试脚本
+src/LocalAIModelManager.Core/           UI 无关的核心（网关 / 生命周期 / 适配器 / 进程 / 配置 / 日志 / 资源）
+src/LocalAIModelManager.App/            WPF 桌面应用（12 个页面 + 托盘）
+src/LocalAIModelManager.MockEngine/     离线用的假 llama-server（CLI + OpenAI 兼容 HTTP）
+src/LocalAIModelManager.ControlHelper/  一次性助手：向引擎控制台投递 CTRL_BREAK
+tests/LocalAIModelManager.Tests/        自带断言框架的单元 + 验收测试
+scripts/                                build / run / acceptance / app-smoke / publish
+docs/packaging/                         发行包内附的说明模板
+artifacts/                              打包产物（不纳入版本控制）
 ```
 
-## 8. 受限环境说明
+## 10. 受限环境说明
 
 - 脚本已设置 `DOTNET_CLI_HOME`，避免 .NET CLI 因无法写入用户目录而失败。
 - MSBuild 多节点依赖命名管道，部分沙箱禁止；脚本统一使用 `-m:1 -nodeReuse:false`。
   在不受限的机器上可以去掉这两个开关。
 - Windows PowerShell 默认禁止脚本执行，请使用
   `powershell -NoProfile -ExecutionPolicy Bypass -File <脚本>`。
+- `scripts\publish.ps1` 是纯 ASCII 的：Windows PowerShell 5.1 在脚本没有 UTF-8 BOM 时
+  按 ANSI 解析，因此所有中文文案都放在 `docs\packaging\*.txt` 模板里再复制进发行包。

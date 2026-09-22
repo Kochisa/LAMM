@@ -13,7 +13,10 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
     [switch]$NoBuild,
-    [switch]$KeepSandbox
+    [switch]$KeepSandbox,
+    # Point the smoke test at an already packaged build, e.g. artifacts\...\LocalAIModelManager.exe
+    [string]$AppExecutable = '',
+    [string]$MockEngineExecutable = ''
 )
 
 . (Join-Path $PSScriptRoot 'env.ps1')
@@ -40,11 +43,13 @@ if (-not $NoBuild) {
     Invoke-LammBuild -Configuration $Configuration -Quiet
 }
 
-$appExe = Get-LammAppExecutable -Configuration $Configuration
-$mockExe = Get-LammMockEngineExecutable -Configuration $Configuration
+$appExe = if ($AppExecutable) { $AppExecutable } else { Get-LammAppExecutable -Configuration $Configuration }
+$mockExe = if ($MockEngineExecutable) { $MockEngineExecutable } else { Get-LammMockEngineExecutable -Configuration $Configuration }
 
 if (-not (Test-Path $appExe)) { throw "Application not found: $appExe" }
 if (-not (Test-Path $mockExe)) { throw "Mock engine not found: $mockExe" }
+
+Write-Host "Application under test: $appExe"
 
 $sandbox = Join-Path $env:TEMP ("lamm-app-smoke-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 $engineDir = Join-Path $sandbox 'engines\b6379'

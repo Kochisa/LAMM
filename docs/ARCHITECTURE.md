@@ -65,13 +65,15 @@ LocalAIModelManager/
 ├─ NuGet.config                     # 清空包源：全离线构建（零第三方依赖）
 ├─ docs/
 │  ├─ ARCHITECTURE.md               # 本文
-│  └─ VERIFICATION.md               # 验收证据
+│  ├─ VERIFICATION.md               # 验收证据
+│  └─ packaging/                    # 发行包内附说明的模板（UTF-8，避免脚本编码问题）
 ├─ scripts/
 │  ├─ env.ps1                       # 共享环境（DOTNET_CLI_HOME、单节点 MSBuild）
 │  ├─ build.ps1                     # 构建整个解决方案
 │  ├─ run.ps1                        # 启动桌面应用
-│  ├─ acceptance.ps1                # 24 项内核 + 验收测试
-│  └─ app-smoke.ps1                 # 26 项「真实可执行文件」端到端冒烟
+│  ├─ acceptance.ps1                # 25 项内核 + 验收测试
+│  ├─ app-smoke.ps1                 # 26 项「真实可执行文件」端到端冒烟
+│  └─ publish.ps1                   # 打包成可分发软件（框架依赖 / 免安装）
 ├─ src/
 │  ├─ LocalAIModelManager.Core/     # 无 UI 依赖的核心
 │  │  ├─ Models/                    # ModelDefinition / EngineDefinition / ModelState
@@ -278,7 +280,26 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 
 ---
 
-## 10. 验证策略
+## 10. 部署形态
+
+| 形态 | 体积 | 目标机器要求 | 入口 |
+|---|---|---|---|
+| 框架依赖包 | 约 1.2 MB | .NET 10 Desktop Runtime + ASP.NET Core Runtime | `LocalAIModelManager.exe` |
+| 免安装包 | 约 201 MB | 无 | `Start.cmd`（设置 `DOTNET_ROOT` 指向随包私有运行时） |
+
+**为什么不用 `--self-contained`**：apphost 是否为自包含在 apphost 编译期由 SDK 决定，
+需要 runtime pack；该 pack 属于 NuGet 包，在没有外网的环境下拿不到。
+手工把 `runtimeconfig.json` 改成 `includedFrameworks` 并不可行（实测 hostfxr 仍按
+框架依赖解析并报 `hostpolicy.dll not found`）。因此免安装包采用**私有 .NET 运行时 +
+`DOTNET_ROOT`** 这一受支持方案，并用「运行中进程实际加载的模块路径」验证其生效
+（见 `docs/VERIFICATION.md` §6.2）。
+
+发行包内还带一个 `engines\mock\llama-server.exe`（即 `MockEngine`，重命名后的 apphost），
+让没有 llama.cpp 的机器也能立刻跑通全流程。
+
+---
+
+## 11. 验证策略
 
 三层，全部离线可跑：
 
@@ -295,7 +316,7 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 
 ---
 
-## 11. 已知限制
+## 12. 已知限制
 
 - **无 llama.cpp 二进制时无法验证真实引擎**：本仓库所在环境无外网、无 `llama-server.exe`，
   因此所有端到端验证使用自带的 `MockEngine`（CLI 与 HTTP 表面与 llama.cpp 对齐）。
