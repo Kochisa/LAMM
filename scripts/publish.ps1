@@ -225,8 +225,7 @@ Write-Host ''
 Write-Host 'Publish succeeded.' -ForegroundColor Green
 Write-Host "  Runnable exe : $appExe"
 if ($Portable) {
-    Write-Host "  No-install   : $(Join-Path $portableDir 'LocalAIModelManager.exe')"
+    Write-Host "  No-install   : $(Join-Path $portableDir 'Start.cmd')"
 }
 Write-Host ''
-Write-Host 'Verify the packaged build end to end with:'
-Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild -AppExecutable `"$appExe`""
+Write-Host 'Run it, then open Settings -> Inference Engine to point at your llama-server.exe.'

@@ -67,6 +67,8 @@ public partial class ModelEditorWindow : System.Windows.Window
         }
 
         var capabilities = _services.GetCapabilities(engineId);
+        var globalDefaults = _services.Current.ModelParameters.Defaults;
+
         foreach (var category in ParameterCategories.Ordered)
         {
             var rows = new List<ParameterRowViewModel>();
@@ -76,10 +78,17 @@ public partial class ModelEditorWindow : System.Windows.Window
                 var supported = capabilities.Supports(descriptor.Key);
                 var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
 
+                // Model override wins; otherwise inherit the global default so the
+                // dialog shows exactly what will be applied (e.g. GPU offload).
                 if (_model.Parameters.TryGetValue(descriptor.Key, out var value))
                 {
                     row.IsEnabled = true;
                     row.Value = value;
+                }
+                else if (globalDefaults.TryGetValue(descriptor.Key, out var globalValue))
+                {
+                    row.IsEnabled = true;
+                    row.Value = globalValue;
                 }
                 else if (!string.IsNullOrEmpty(descriptor.DefaultValue) && descriptor.Kind != ParameterKind.Boolean)
                 {

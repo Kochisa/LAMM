@@ -30,11 +30,6 @@ function Get-LammConfiguration {
     return $Configuration
 }
 
-function Get-LammTestExecutable {
-    param([string]$Configuration = 'Debug')
-    return Join-Path $script:RepoRoot "tests\LocalAIModelManager.Tests\bin\$Configuration\net10.0-windows\LocalAIModelManager.Tests.exe"
-}
-
 function Get-LammAppExecutable {
     param([string]$Configuration = 'Debug')
     return Join-Path $script:RepoRoot "src\LocalAIModelManager.App\bin\$Configuration\net10.0-windows\LocalAIModelManager.exe"

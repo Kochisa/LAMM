@@ -10,8 +10,4 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="LocalAIModelManager.Tests" />
-  </ItemGroup>
-
 </Project>

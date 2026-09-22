@@ -110,6 +110,25 @@ public sealed class EngineSettings
 
 public sealed class ModelParameterSettings
 {
+    /// <summary>Version of the built-in baseline that has already been seeded into <see cref="Defaults"/>.</summary>
+    public int DefaultsVersion { get; set; }
+
+    /// <summary>Current built-in baseline version. Bump when <see cref="BuiltInDefaults"/> changes.</summary>
+    public const int CurrentDefaultsVersion = 1;
+
+    /// <summary>
+    /// GPU-first baseline applied to every model. llama.cpp defaults to
+    /// <c>-ngl 0</c> (pure CPU), which is almost never what a desktop user wants,
+    /// so the manager ships full GPU offload as the default instead.
+    /// Engines that do not advertise the flag simply drop it (with a warning), and
+    /// a user who really wants CPU can set the value to 0.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> BuiltInDefaults { get; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["--n-gpu-layers"] = "99",
+        };
+
     /// <summary>Default CLI flag values applied to every model unless overridden.</summary>
     public Dictionary<string, string> Defaults { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -118,6 +137,25 @@ public sealed class ModelParameterSettings
 
     public void Normalize()
     {
+        Defaults ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        ExtraArguments ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (DefaultsVersion < CurrentDefaultsVersion)
+        {
+            // One-time migration: seed the baseline, but never overwrite a value the
+            // user has already chosen. The version stamp means that if the user later
+            // deletes the entry on purpose, it stays deleted.
+            foreach (var (key, value) in BuiltInDefaults)
+            {
+                if (!Defaults.ContainsKey(key))
+                {
+                    Defaults[key] = value;
+                }
+            }
+
+            DefaultsVersion = CurrentDefaultsVersion;
+        }
+
         Defaults = DictionaryNormalizer.Normalize(Defaults);
         ExtraArguments = DictionaryNormalizer.Normalize(ExtraArguments);
     }

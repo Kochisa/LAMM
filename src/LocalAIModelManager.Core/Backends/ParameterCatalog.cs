@@ -135,8 +135,10 @@ public static class ParameterCatalog
         new()
         {
             Key = "--n-gpu-layers", DisplayName = "GPU layers (offload)", Category = ParameterCategories.Gpu,
-            Kind = ParameterKind.Integer, DefaultValue = "0", Aliases = new[] { "-ngl" },
-            ValueHint = "<n|auto|all>", Description = "Number of transformer layers offloaded to the GPU.",
+            Kind = ParameterKind.Integer, DefaultValue = "99", Aliases = new[] { "-ngl" },
+            ValueHint = "<n|auto|all>",
+            Description = "Transformer layers offloaded to the GPU. The manager defaults this to 99 "
+                        + "(all layers) so models run on the GPU; set it to 0 to force CPU.",
         },
         new()
         {

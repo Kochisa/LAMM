@@ -65,14 +65,11 @@ LocalAIModelManager/
 ├─ NuGet.config                     # 清空包源：全离线构建（零第三方依赖）
 ├─ docs/
 │  ├─ ARCHITECTURE.md               # 本文
-│  ├─ VERIFICATION.md               # 验收证据
 │  └─ packaging/                    # 发行包内附说明的模板（UTF-8，避免脚本编码问题）
 ├─ scripts/
 │  ├─ env.ps1                       # 共享环境（DOTNET_CLI_HOME、单节点 MSBuild）
 │  ├─ build.ps1                     # 构建整个解决方案
 │  ├─ run.ps1                        # 启动桌面应用
-│  ├─ acceptance.ps1                # 25 项内核 + 验收测试
-│  ├─ app-smoke.ps1                 # 26 项「真实可执行文件」端到端冒烟
 │  └─ publish.ps1                   # 打包成可分发软件（框架依赖 / 免安装）
 ├─ src/
 │  ├─ LocalAIModelManager.Core/     # 无 UI 依赖的核心
@@ -93,10 +90,8 @@ LocalAIModelManager/
 │  │  ├─ ViewModels/                # Models / RuntimeStatus / RuntimeLogs / ApiIntegration / Settings
 │  │  ├─ Views/                     # 对应 XAML
 │  │  └─ Themes/                    # Dark / Light / Controls
-│  ├─ LocalAIModelManager.MockEngine/      # 离线 OpenAI 兼容「假 llama-server」
-│  └─ LocalAIModelManager.ControlHelper/   # 一次性助手：给引擎送 CTRL_BREAK
-└─ tests/
-   └─ LocalAIModelManager.Tests/    # 自带断言框架的离线测试 + 验收工具
+│  ├─ LocalAIModelManager.MockEngine/      # 离线 OpenAI 兼容「假 llama-server」（发行包内置演示引擎）
+│  └─ LocalAIModelManager.ControlHelper/   # 一次性助手：给引擎送 CTRL_BREAK（发行包必需组件）
 ```
 
 **为什么零第三方依赖**：目标机器可能没有 NuGet 源。整个解决方案只使用框架引用
@@ -160,6 +155,16 @@ IBackendAdapter.Inspect(engine)
 
 参数解析优先级：`ModelParameters.Defaults` → `ModelParameters.ExtraArguments` → **模型自己的参数**（最高）。
 `--model / --host / --port / --alias / --no-webui` 属于「管理器托管」，模型无法覆盖。
+
+**GPU 优先的内置默认值**：llama.cpp 自己的默认是 `-ngl 0`（纯 CPU），这对桌面用户几乎总是错的。
+因此 `ModelParameterSettings.BuiltInDefaults` 内置了 `--n-gpu-layers = 99`（全部层卸载到显卡），
+并在 `Normalize()` 中按 `DefaultsVersion` **一次性**写入 `Defaults`：
+
+- 全新配置直接带上该默认值；
+- 老配置（没有 `defaultsVersion` 字段）在下次启动时自动补上，用户已设置的值不会被覆盖；
+- 用户把它删掉或改成 `0` 之后**不会**被重新塞回来（版本戳已经打过）；
+- 引擎若不支持该参数，`BuildLaunchPlan` 会按能力探测结果丢弃它并记录警告；
+- 机器没有可用 GPU 时，llama.cpp 会忽略该参数并回退到 CPU。
 
 ### 4.4 生命周期状态机
 
@@ -291,38 +296,23 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 需要 runtime pack；该 pack 属于 NuGet 包，在没有外网的环境下拿不到。
 手工把 `runtimeconfig.json` 改成 `includedFrameworks` 并不可行（实测 hostfxr 仍按
 框架依赖解析并报 `hostpolicy.dll not found`）。因此免安装包采用**私有 .NET 运行时 +
-`DOTNET_ROOT`** 这一受支持方案，并用「运行中进程实际加载的模块路径」验证其生效
-（见 `docs/VERIFICATION.md` §6.2）。
+`DOTNET_ROOT`** 这一受支持方案；想确认它确实生效，可以在程序运行时查看进程加载的模块，
+`coreclr.dll` / `PresentationFramework.dll` / `Microsoft.AspNetCore.Server.Kestrel.Core.dll`
+应当全部来自包内的 `dotnet\` 目录。
 
 发行包内还带一个 `engines\mock\llama-server.exe`（即 `MockEngine`，重命名后的 apphost），
 让没有 llama.cpp 的机器也能立刻跑通全流程。
 
 ---
 
-## 11. 验证策略
+## 11. 已知限制
 
-三层，全部离线可跑：
-
-1. **单元测试（17 项）**：配置默认值与安全约束、JSON 往返与损坏隔离、脱敏、环形日志、
-   `--help` 解析、命令行构造与参数过滤、模型注册表、端口分配、引擎发现、开机启动命令、
-   网关选项传递。
-2. **内核验收测试（8 项）**：真实 Kestrel + 真实子进程，覆盖
-   「待机 → 按需加载 → 流式 → 空闲卸载 → 重新加载」、LRU 驱逐、鉴权开关、
-   **引擎版本切换导致参数集合变化**、加载失败 502、优雅/强制停止与孤儿检查、日志不落盘。
-3. **应用冒烟测试（26 项）**：对**真正构建出来的 `LocalAIModelManager.exe`** 做端到端验证
-   （见 `scripts/app-smoke.ps1`）。
-
-证据与命令见 `docs/VERIFICATION.md`。
-
----
-
-## 12. 已知限制
-
-- **无 llama.cpp 二进制时无法验证真实引擎**：本仓库所在环境无外网、无 `llama-server.exe`，
-  因此所有端到端验证使用自带的 `MockEngine`（CLI 与 HTTP 表面与 llama.cpp 对齐）。
-  切换到真实引擎只需把引擎路径指过去，代码路径完全相同。
+- **本机没有 llama.cpp 二进制**：仓库所在环境无外网、无 `llama-server.exe`，因此自带的
+  `MockEngine`（CLI 与 HTTP 表面与 llama.cpp 对齐）既是开发期的替身，也是发行包里的演示引擎。
+  切到真实引擎只需把引擎路径指过去，代码路径完全相同。
 - **`SetConsoleCtrlHandler` 不可用于 WPF 主进程**：见 §6 的 `ControlHelper` 说明。
-- **多节点 MSBuild 在此沙箱不可用**（命名管道受限），脚本统一使用 `-m:1 -nodeReuse:false`。
-- **HKCU 注册表写入在此沙箱被拒绝**：开机启动写入路径无法实测，只验证了命令构造与
-  非抛异常的错误上报路径（测试报告中标记为 SKIP）。
+- **多节点 MSBuild 在部分受限环境不可用**（命名管道受限），脚本统一使用
+  `-m:1 -nodeReuse:false`；在不受限的机器上可以去掉这两个开关。
+- **开机启动需要能写 HKCU**：受限账户下写 `HKEY_CURRENT_USER\...\Run` 会被拒绝，此时
+  「常规」页会给出明确错误并把开关回滚为关闭，而不是静默失败。
 - 界面目前为简体中文单语言（`General.Language` 字段保留但未用于切换文案）。

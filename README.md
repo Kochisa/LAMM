@@ -54,16 +54,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 # 直接运行开发版
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
-
-# 内核单元 + 验收测试（25 项，离线）
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\acceptance.ps1
-
-# 对真实 exe 的端到端冒烟（26 项，离线）
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1
-
-# 对打包产物做同样的端到端验证
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoBuild `
-  -AppExecutable ".\artifacts\LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe"
 ```
 
 首次启动会自动生成 API Key 并写入
@@ -81,6 +71,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\app-smoke.ps1 -NoB
 
 升级引擎：把新版本解压到别的目录 → 新增一条引擎记录 → 在模型里改指过去即可。
 **删除引擎或模型记录都不会删除磁盘上的任何文件。**
+
+### GPU 默认设置（默认就走显卡）
+
+llama.cpp 自己的默认是 `-ngl 0`，也就是**纯 CPU**。管理器内置了 **GPU 优先** 的默认参数：
+
+```
+--n-gpu-layers = 99      # 全部层卸载到显卡
+```
+
+无需任何手动配置；全新安装和已有配置都会带上它（已有配置在下次启动时自动补齐，
+且不会覆盖你已经改过的值）。
+
+| 想做什么 | 怎么做 |
+|---|---|
+| 用 GPU（默认） | 什么都不用做；确认引擎是 CUDA/Vulkan 版本 |
+| 强制只用 CPU | **设置 → 模型参数** → 把 `GPU layers (offload)` 改成 `0` → 保存默认值 |
+| 只给某个模型单独设定 | **模型 → 编辑…** → 改该模型的这一项（模型级参数优先级最高，会覆盖全局默认） |
+| 让改动生效 | 到 **模型** 页对已加载的模型点 **重启**（改参数不会自动重载） |
+| 确认真的在 GPU 上 | **运行状态** 页看显存占用；或看「运行日志」里引擎输出的 `n_gpu_layers` |
+
+层数超过 99 的超大模型请把该值调大。机器没有可用 GPU 时，llama.cpp 会忽略该参数并回退到 CPU。
 
 ## 4. 用离线演示引擎先跑通全流程
 
@@ -164,15 +175,15 @@ for chunk in stream:
 
 ## 9. 项目结构
 
-见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)；验收证据见 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)。
+见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
 ```
 src/LocalAIModelManager.Core/           UI 无关的核心（网关 / 生命周期 / 适配器 / 进程 / 配置 / 日志 / 资源）
 src/LocalAIModelManager.App/            WPF 桌面应用（12 个页面 + 托盘）
-src/LocalAIModelManager.MockEngine/     离线用的假 llama-server（CLI + OpenAI 兼容 HTTP）
-src/LocalAIModelManager.ControlHelper/  一次性助手：向引擎控制台投递 CTRL_BREAK
-tests/LocalAIModelManager.Tests/        自带断言框架的单元 + 验收测试
-scripts/                                build / run / acceptance / app-smoke / publish
+src/LocalAIModelManager.MockEngine/     离线用的假 llama-server（CLI + OpenAI 兼容 HTTP），
+                                        同时作为发行包内置的演示引擎
+src/LocalAIModelManager.ControlHelper/  一次性助手：向引擎控制台投递 CTRL_BREAK（发行包必需）
+scripts/                                build / run / publish
 docs/packaging/                         发行包内附的说明模板
 artifacts/                              打包产物（不纳入版本控制）
 ```
