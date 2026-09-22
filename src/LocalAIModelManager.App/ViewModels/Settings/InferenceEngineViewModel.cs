@@ -110,11 +110,18 @@ public sealed class InferenceEngineViewModel : PageViewModelBase
     public InferenceEngineViewModel(AppServices services)
         : base(services)
     {
-        AddCommand = new AsyncRelayCommand(AddAsync, () => !IsBusy);
-        EditCommand = new AsyncRelayCommand(EditAsync, () => Selected is not null && !IsBusy);
-        RemoveCommand = new AsyncRelayCommand(RemoveAsync, () => Selected is not null && !IsBusy);
-        ProbeCommand = new AsyncRelayCommand(ProbeAsync, () => Selected is not null && !IsBusy);
+        AddCommand = new AsyncRelayCommand(AddAsync, () => !IsBusy, OnCommandFailed);
+        EditCommand = new AsyncRelayCommand(EditAsync, () => Selected is not null && !IsBusy, OnCommandFailed);
+        RemoveCommand = new AsyncRelayCommand(RemoveAsync, () => Selected is not null && !IsBusy, OnCommandFailed);
+        ProbeCommand = new AsyncRelayCommand(ProbeAsync, () => Selected is not null && !IsBusy, OnCommandFailed);
         UseCommand = new RelayCommand(_ => UseSelected(), _ => Selected is not null);
+    }
+
+    private void OnCommandFailed(Exception exception)
+    {
+        SetError(exception.Message);
+        Services.Logs.Error("ui", $"推理引擎操作失败：{exception.Message}", exception);
+        Services.Dialogs.ShowError("推理引擎", exception.Message);
     }
 
     public override string Title => "推理引擎";

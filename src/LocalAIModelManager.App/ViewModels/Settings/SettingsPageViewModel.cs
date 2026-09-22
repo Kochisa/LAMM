@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using LocalAIModelManager.App.Infrastructure;
 using LocalAIModelManager.App.Services;
+using LocalAIModelManager.Core.Logging;
 
 namespace LocalAIModelManager.App.ViewModels.Settings;
 
@@ -24,7 +25,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
             section.Fields.Select(f => new SettingFieldViewModel(f, services)));
         Notes = new ObservableCollection<string>();
 
-        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy);
+        SaveCommand = new AsyncRelayCommand(SaveAsync, () => !IsBusy, OnCommandFailed);
         ReloadCommand = new RelayCommand(_ => Load(force: true));
         ResetCommand = new RelayCommand(_ => Load(force: true));
     }
@@ -67,6 +68,15 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         // page switch. The user can press "重新载入" to discard them.
         RefreshNotes();
         return Task.CompletedTask;
+    }
+
+    private void OnCommandFailed(Exception exception)
+    {
+        // Saving can fail for reasons the user must see, e.g. the startup registry
+        // key being denied. Never swallow it.
+        SetError(exception.Message);
+        Services.Logs.Error("ui", $"保存“{Title}”设置失败：{exception.Message}", exception);
+        Services.Dialogs.ShowError($"保存“{Title}”设置", exception.Message);
     }
 
     private void Load(bool force)
