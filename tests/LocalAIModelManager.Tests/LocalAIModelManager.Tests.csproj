@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>LocalAIModelManager.Tests</RootNamespace>
+    <AssemblyName>LocalAIModelManager.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\LocalAIModelManager.Core\LocalAIModelManager.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The mock inference engine is launched as a child process, so it must sit next
+    to the test binary. It is deliberately NOT a ProjectReference: referencing an
+    Exe project breaks the offline restore graph, and the harness only needs the
+    files. Build order is enforced by the solution (see LocalAIModelManager.sln)
+    and by scripts/build.ps1.
+  -->
+  <PropertyGroup>
+    <MockEngineProject>$(MSBuildThisFileDirectory)..\..\src\LocalAIModelManager.MockEngine\LocalAIModelManager.MockEngine.csproj</MockEngineProject>
+    <MockEngineOutputDir>$(MSBuildThisFileDirectory)..\..\src\LocalAIModelManager.MockEngine\bin\$(Configuration)\net10.0-windows\</MockEngineOutputDir>
+    <ControlHelperProject>$(MSBuildThisFileDirectory)..\..\src\LocalAIModelManager.ControlHelper\LocalAIModelManager.ControlHelper.csproj</ControlHelperProject>
+    <ControlHelperOutputDir>$(MSBuildThisFileDirectory)..\..\src\LocalAIModelManager.ControlHelper\bin\$(Configuration)\net10.0-windows\</ControlHelperOutputDir>
+  </PropertyGroup>
+
+  <!--
+    Build the mock engine and the control helper first (a plain ProjectReference
+    would break the offline restore graph for Exe targets), then copy their output
+    next to the test binary so the harness can launch them as child processes.
+  -->
+  <Target Name="BuildMockEngineFirst" BeforeTargets="Build">
+    <MSBuild Projects="$(MockEngineProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="$(ControlHelperProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="CopyMockEngineForTests" AfterTargets="Build" Condition="Exists('$(MockEngineOutputDir)')">
+    <ItemGroup>
+      <MockEngineFiles Include="$(MockEngineOutputDir)**\*" />
+      <ControlHelperFiles Include="$(ControlHelperOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MockEngineFiles)"
+          DestinationFolder="$(OutDir)mockengine\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ControlHelperFiles)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Copied @(MockEngineFiles->Count()) mock engine file(s) to $(OutDir)mockengine" />
+  </Target>
+
+</Project>

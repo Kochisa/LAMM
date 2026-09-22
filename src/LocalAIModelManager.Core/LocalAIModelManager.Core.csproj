@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>LocalAIModelManager.Core</RootNamespace>
+    <AssemblyName>LocalAIModelManager.Core</AssemblyName>
+    <!-- The core is the only place that hosts the OpenAI-compatible gateway. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LocalAIModelManager.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,11 @@
+bin/
+obj/
+.packages/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+_scratch/
+logs/

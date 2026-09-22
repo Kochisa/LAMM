@@ -1,0 +1,167 @@
+<UserControl x:Class="LocalAIModelManager.App.Views.ApiIntegrationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:LocalAIModelManager.App.Infrastructure"
+             mc:Ignorable="d"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="760" d:DesignWidth="1250">
+
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:EmptyStringToVisibilityConverter x:Key="EmptyToVisibility" />
+    </UserControl.Resources>
+
+    <Grid Margin="24,20,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.PageTitle}" />
+            <TextBlock Text="{Binding Description}" Style="{StaticResource Text.Muted}" Margin="0,6,0,0" MaxWidth="1100" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- connection info -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="连接信息" Style="{StaticResource Text.SectionTitle}" />
+
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Base URL" Style="{StaticResource KeyValue.Label}" />
+                            <TextBox Grid.Column="1" Text="{Binding BaseUrl, Mode=OneWay}" IsReadOnly="True"
+                                     FontFamily="Cascadia Mono, Consolas" />
+                            <Button Grid.Column="2" Content="复制" Margin="8,0,0,0" Command="{Binding CopyBaseUrlCommand}" />
+                        </Grid>
+
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="API Key" Style="{StaticResource KeyValue.Label}" />
+                            <TextBox Grid.Column="1" Text="{Binding ApiKeyDisplay, Mode=OneWay}" IsReadOnly="True"
+                                     FontFamily="Cascadia Mono, Consolas" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Content="显示" Command="{Binding ToggleRevealCommand}" />
+                                <Button Content="复制" Command="{Binding CopyApiKeyCommand}" />
+                                <Button Content="重新生成" Command="{Binding RegenerateKeyCommand}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="示例模型 ID" Style="{StaticResource KeyValue.Label}" />
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Left" MinWidth="260"
+                                      ItemsSource="{Binding ModelIds}" SelectedItem="{Binding SelectedModelId, Mode=TwoWay}" />
+                            <Button Grid.Column="2" Content="复制" Command="{Binding CopyModelIdCommand}" />
+                        </Grid>
+
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="网关状态" Style="{StaticResource KeyValue.Label}" />
+                            <TextBlock Grid.Column="1" Text="{Binding GatewayStateText}" Style="{StaticResource KeyValue.Value}" />
+                        </Grid>
+
+                        <Grid Margin="0,4,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="网络暴露" Style="{StaticResource KeyValue.Label}" />
+                            <TextBlock Grid.Column="1" Text="{Binding BindingText}" Style="{StaticResource KeyValue.Value}" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Warnings}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,2"
+                                               Foreground="{DynamicResource Status.Busy}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- endpoints -->
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="端点" Style="{StaticResource Text.SectionTitle}" />
+                        <DataGrid ItemsSource="{Binding Endpoints}" MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="方法" Binding="{Binding Method}" Width="70" />
+                                <DataGridTextColumn Header="路径" Binding="{Binding Path}" Width="260" />
+                                <DataGridTextColumn Header="说明" Binding="{Binding Description}" Width="*" />
+                                <DataGridTextColumn Header="鉴权" Binding="{Binding Auth}" Width="240" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <!-- python (openai sdk) -->
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Python 示例（openai SDK）" Style="{StaticResource Text.SectionTitle}" />
+                        <Button DockPanel.Dock="Top" Content="复制 Python 示例" HorizontalAlignment="Left"
+                                Margin="0,0,0,8" Command="{Binding CopyPythonCommand}" />
+                        <TextBox Text="{Binding PythonExample, Mode=OneWay}" Style="{StaticResource CodeBlock}" Height="300" />
+                    </DockPanel>
+                </Border>
+
+                <!-- python raw -->
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Python 示例（requests + SSE）" Style="{StaticResource Text.SectionTitle}" />
+                        <Button DockPanel.Dock="Top" Content="复制 Python 流式示例" HorizontalAlignment="Left"
+                                Margin="0,0,0,8" Command="{Binding CopyPythonRawCommand}" />
+                        <TextBox Text="{Binding PythonRawExample, Mode=OneWay}" Style="{StaticResource CodeBlock}" Height="280" />
+                    </DockPanel>
+                </Border>
+
+                <!-- curl -->
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="curl 示例" Style="{StaticResource Text.SectionTitle}" />
+                        <Button DockPanel.Dock="Top" Content="复制 curl 示例" HorizontalAlignment="Left"
+                                Margin="0,0,0,8" Command="{Binding CopyCurlCommand}" />
+                        <TextBox Text="{Binding CurlExample, Mode=OneWay}" Style="{StaticResource CodeBlock}" Height="180" />
+                    </DockPanel>
+                </Border>
+
+                <!-- powershell -->
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="PowerShell 示例" Style="{StaticResource Text.SectionTitle}" />
+                        <Button DockPanel.Dock="Top" Content="复制 PowerShell 示例" HorizontalAlignment="Left"
+                                Margin="0,0,0,8" Command="{Binding CopyPowerShellCommand}" />
+                        <TextBox Text="{Binding PowerShellExample, Mode=OneWay}" Style="{StaticResource CodeBlock}" Height="240" />
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Margin="0,10,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Status.Ready}"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource EmptyToVisibility}}" />
+            <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0"
+                       Text="首次请求会自动启动引擎进程并加载模型，随后转发请求；空闲超时后自动卸载并释放显存。" />
+        </StackPanel>
+    </Grid>
+</UserControl>

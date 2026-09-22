@@ -1,0 +1,106 @@
+<UserControl x:Class="LocalAIModelManager.App.Views.Settings.ModelParametersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:LocalAIModelManager.App.Infrastructure"
+             mc:Ignorable="d"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="700" d:DesignWidth="1100">
+
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:EmptyStringToVisibilityConverter x:Key="EmptyToVisibility" />
+    </UserControl.Resources>
+
+    <Grid Margin="24,20,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.PageTitle}" />
+            <TextBlock Text="{Binding Description}" Style="{StaticResource Text.Muted}" Margin="0,6,0,0" MaxWidth="1050" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="引擎：" Style="{StaticResource KeyValue.Label}" />
+            <ComboBox ItemsSource="{Binding EngineOptions}" DisplayMemberPath="Display"
+                      SelectedItem="{Binding SelectedEngine, Mode=TwoWay}" MinWidth="280" />
+            <Button Content="重新探测" Margin="12,0,0,0" Command="{Binding ProbeCommand}" />
+            <Button Content="重新载入" Command="{Binding ReloadCommand}" />
+            <Button Content="保存默认值" Style="{StaticResource Button.Primary}" Command="{Binding SaveCommand}" />
+            <TextBlock Text="{Binding Summary}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center"
+                       Margin="12,0,0,0" />
+        </StackPanel>
+
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Groups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,18">
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.SectionTitle}" />
+                                <ItemsControl ItemsSource="{Binding Rows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource App.Border}"
+                                                    Padding="0,8,0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="40" />
+                                                        <ColumnDefinition Width="300" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                              IsEnabled="{Binding Supported}" VerticalAlignment="Center" />
+
+                                                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                                        <TextBlock FontSize="11" Foreground="{DynamicResource App.ForegroundMuted}">
+                                                            <Run Text="{Binding Key, Mode=OneWay}" />
+                                                            <Run Text="  ·  " />
+                                                            <Run Text="{Binding KindLabel, Mode=OneWay}" />
+                                                            <Run Text="  ·  " />
+                                                            <Run Text="{Binding SupportLabel, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Help}" Style="{StaticResource Text.Muted}"
+                                                                   FontSize="11" Margin="0,2,0,0"
+                                                                   Visibility="{Binding Help, Converter={StaticResource EmptyToVisibility}}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <CheckBox IsChecked="{Binding BoolValue, Mode=TwoWay}"
+                                                                  IsEnabled="{Binding IsEditable}"
+                                                                  Visibility="{Binding IsBoolean, Converter={StaticResource BoolToVisibility}}" />
+                                                        <ComboBox ItemsSource="{Binding Choices}"
+                                                                  SelectedItem="{Binding SelectionValue, Mode=TwoWay}"
+                                                                  IsEnabled="{Binding IsEditable}"
+                                                                  Visibility="{Binding IsChoice, Converter={StaticResource BoolToVisibility}}" />
+                                                        <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 MinWidth="240" IsEnabled="{Binding IsEditable}"
+                                                                 Visibility="{Binding IsText, Converter={StaticResource BoolToVisibility}}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Status.Ready}"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource EmptyToVisibility}}" />
+            <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,6,0,0"
+                       Text="灰色且无法勾选的参数表示当前安装的引擎不支持它们；升级或更换引擎后重新探测即可使用。" />
+        </StackPanel>
+    </Grid>
+</UserControl>

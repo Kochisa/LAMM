@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Dark theme palette -->
+    <SolidColorBrush x:Key="App.Background" Color="#12141A" />
+    <SolidColorBrush x:Key="App.Surface" Color="#1A1D25" />
+    <SolidColorBrush x:Key="App.SurfaceAlt" Color="#21242E" />
+    <SolidColorBrush x:Key="App.Border" Color="#2E3240" />
+    <SolidColorBrush x:Key="App.Foreground" Color="#E8EAF0" />
+    <SolidColorBrush x:Key="App.ForegroundMuted" Color="#8E94A6" />
+    <SolidColorBrush x:Key="App.Accent" Color="#4C8DFF" />
+    <SolidColorBrush x:Key="App.AccentForeground" Color="#0B0D12" />
+    <SolidColorBrush x:Key="App.Hover" Color="#272B36" />
+    <SolidColorBrush x:Key="App.InputBackground" Color="#14161D" />
+    <SolidColorBrush x:Key="App.Selection" Color="#2A3550" />
+
+    <SolidColorBrush x:Key="Status.Ready" Color="#3DD68C" />
+    <SolidColorBrush x:Key="Status.Busy" Color="#F5B94A" />
+    <SolidColorBrush x:Key="Status.Error" Color="#F2596A" />
+    <SolidColorBrush x:Key="Status.Idle" Color="#6B7285" />
+
+</ResourceDictionary>

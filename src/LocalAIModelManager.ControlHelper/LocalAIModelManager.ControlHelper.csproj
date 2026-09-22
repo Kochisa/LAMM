@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>LocalAIModelManager.ControlHelper</RootNamespace>
+    <AssemblyName>LocalAIModelManager.ControlHelper</AssemblyName>
+    <!-- Console subsystem: it needs a console it can attach to the engine's. -->
+    <DisableWinExeOutputInference>true</DisableWinExeOutputInference>
+  </PropertyGroup>
+
+</Project>

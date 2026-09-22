@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>LocalAIModelManager.App</RootNamespace>
+    <AssemblyName>LocalAIModelManager</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- WFO0003: the DPI settings live in app.manifest on purpose (WPF app). -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!--
+    WinForms is only used for the notification-area icon and the folder picker.
+    Its implicit usings (System.Windows.Forms / System.Drawing) would make every
+    WPF type ambiguous, so they are removed; files opt in explicitly.
+  -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LocalAIModelManager.Core\LocalAIModelManager.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The control helper is a separate console process used to deliver CTRL_BREAK to
+    an engine's console. It is copied next to the manager so engines can be stopped
+    gracefully without the GUI process ever attaching to their console.
+  -->
+  <PropertyGroup>
+    <ControlHelperProject>$(MSBuildThisFileDirectory)..\LocalAIModelManager.ControlHelper\LocalAIModelManager.ControlHelper.csproj</ControlHelperProject>
+    <ControlHelperOutputDir>$(MSBuildThisFileDirectory)..\LocalAIModelManager.ControlHelper\bin\$(Configuration)\net10.0-windows\</ControlHelperOutputDir>
+  </PropertyGroup>
+
+  <Target Name="BuildControlHelperFirst" BeforeTargets="Build">
+    <MSBuild Projects="$(ControlHelperProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="CopyControlHelper" AfterTargets="Build" Condition="Exists('$(ControlHelperOutputDir)')">
+    <ItemGroup>
+      <ControlHelperFiles Include="$(ControlHelperOutputDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ControlHelperFiles)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
