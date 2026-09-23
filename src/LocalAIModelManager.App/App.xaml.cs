@@ -162,15 +162,30 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Headless command line support.
+    /// Headless command line support. Returns null when the arguments do not contain one.
     ///
-    /// <c>--autotune &lt;model.gguf&gt; [--out &lt;report.txt&gt;]</c> reads the model's own GGUF
-    /// metadata, combines it with this machine's VRAM and writes the parameters it would
-    /// use, so model import can be scripted instead of hand tuned.
-    /// Returns null when the arguments do not contain a headless command.
+    /// <c>--autotune &lt;model.gguf&gt; [--out &lt;report.txt&gt;] [--max-vram pct]</c> reads the
+    /// model's own GGUF metadata, combines it with this machine's VRAM and writes the
+    /// parameters it would use, so model import can be scripted instead of hand tuned.
+    ///
+    /// <c>--show-command &lt;modelId&gt;</c> prints the exact llama-server command line that
+    /// would be launched for a registered model. This is the acceptance instrument for
+    /// "no unwanted inference parameters are added".
     /// </summary>
     private static async Task<int?> TryRunCommandLineAsync(string[] args)
     {
+        var showCommandIndex = Array.FindIndex(args, a => string.Equals(a, "--show-command", StringComparison.OrdinalIgnoreCase));
+        if (showCommandIndex >= 0)
+        {
+            if (showCommandIndex + 1 >= args.Length)
+            {
+                Console.Error.WriteLine("usage: LocalAIModelManager.exe --show-command <modelId>");
+                return 2;
+            }
+
+            return await ShowCommandAsync(args[showCommandIndex + 1]).ConfigureAwait(false);
+        }
+
         var autotuneIndex = Array.FindIndex(args, a => string.Equals(a, "--autotune", StringComparison.OrdinalIgnoreCase));
         if (autotuneIndex < 0)
         {
@@ -241,6 +256,76 @@ public partial class App : Application
         {
             Console.Error.WriteLine($"autotune failed: {ex.Message}");
             return 3;
+        }
+    }
+
+    /// <summary>
+    /// Prints the exact command line for a registered model, using the same launch-plan
+    /// code path the real load uses. Nothing is started and no weights are read.
+    /// </summary>
+    private static async Task<int> ShowCommandAsync(string modelId)
+    {
+        AppRuntime? runtime = null;
+        try
+        {
+            runtime = AppRuntime.Create(new AppRuntimeOptions
+            {
+                StartGateway = false,
+                StartResourceMonitor = false,
+                StartIdleMonitor = false,
+                SeedDefaultEngines = false,
+                SeedEngineExecutable = null,
+            });
+
+            var model = runtime.Models.Get(modelId);
+            if (model is null)
+            {
+                Console.Error.WriteLine($"model '{modelId}' is not registered.");
+                return 2;
+            }
+
+            var result = await runtime.Lifecycle.TestAsync(modelId, CancellationToken.None).ConfigureAwait(false);
+
+            var lines = new List<string>
+            {
+                $"model        : {model.Id}",
+                $"display name : {model.DisplayName}",
+                $"file         : {model.FilePath}",
+                $"engine       : {model.EngineId}",
+                $"stored params: {(model.Parameters.Count == 0 ? "(none)" : string.Join(", ", model.Parameters.Select(p => $"{p.Key}={p.Value}")))}",
+                $"extra args   : {(model.AdditionalArguments.Count == 0 ? "(none)" : string.Join(" | ", model.AdditionalArguments))}",
+                string.Empty,
+            };
+
+            lines.AddRange(result.Details);
+            if (result.Warnings.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add("warnings:");
+                lines.AddRange(result.Warnings.Select(w => "  ! " + w));
+            }
+
+            if (result.Errors.Count > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add("errors:");
+                lines.AddRange(result.Errors.Select(e => "  x " + e));
+            }
+
+            Console.WriteLine(string.Join(Environment.NewLine, lines));
+            return result.Success ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"show-command failed: {ex.Message}");
+            return 3;
+        }
+        finally
+        {
+            if (runtime is not null)
+            {
+                await runtime.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 

@@ -153,36 +153,40 @@ IBackendAdapter.Inspect(engine)
 }
 ```
 
-参数解析优先级：`ModelParameters.Defaults` → `ModelParameters.ExtraArguments` → **模型自己的参数**（最高）。
+参数解析优先级：`ModelParameters.Defaults`（全局，用户设置） → `ModelParameters.ExtraArguments` →
+**模型自己的参数**（最高） → 最后追加 `AdditionalArguments`（自由文本行，全局 + 模型）。
 `--model / --host / --port / --alias / --no-webui` 属于「管理器托管」，模型无法覆盖。
 
-**落地友好的内置默认值**：llama.cpp 的两个默认值对桌面用户都不合适——`-ngl 0` 让它跑纯 CPU，
-而未指定上下文时它会采用**模型自身的训练上下文**（长上下文模型会把显存吃光）。
-因此 `ModelParameterSettings.BuiltInDefaults` 内置了：
+**参数策略：未设置就不下发。** 这里没有任何「内置默认值」——`ModelParameterSettings.Defaults`
+和 `ModelDefinition.Parameters` 对新配置和导入的模型**都是空的**。`ResolveParameters()` 只做合并，
+不发明任何键。因此：
 
-```
---n-gpu-layers = 99      # 全部层卸载到显卡
---ctx-size     = 8192    # 上下文上限，直接决定 KV cache 大小
-```
+- 命令行里出现的推理参数，只可能来自用户的显式配置；
+- 显存占用由**模型本身 + llama.cpp 自身默认值**决定，而不是由本应用决定；
+- 早期版本（defaultsVersion 1/2）曾自动写入 `--n-gpu-layers=99` 与 `--ctx-size=8192`；
+  `Normalize()` 在升到版本 3 时会**把这两个自动值删掉**（只删值仍等于自动值的那两条），
+  之后不再写入任何东西；
+- 引擎若不支持某个用户参数，`BuildLaunchPlan` 会按能力探测结果丢弃它并记录警告。
 
-并在 `Normalize()` 中按 `DefaultsVersion` **一次性**写入 `Defaults`：
+**「其他参数」**：界面上不再为几十个冷门开关各做一个控件，只保留 6 项常用参数
+（`EssentialParameters`：context / GPU layers / threads / batch / ubatch / KV cache），
+其余通过自由文本行输入，例如 `--some-option value` 或单独的 `--another-option`。
+`AdditionalArguments.Tokenize()` 按空白切分、保留顺序、去掉成对引号，并挡掉管理器托管的 flag。
 
-- 全新配置直接带上这两个默认值；
-- 老配置（`defaultsVersion` 落后）在下次启动时自动补上，用户已设置的值不会被覆盖；
-- 用户把它们删掉或改小之后**不会**被重新塞回来（版本戳已经打过）；
-- 引擎若不支持某个参数，`BuildLaunchPlan` 会按能力探测结果丢弃它并记录警告；
-- 机器没有可用 GPU 时，llama.cpp 会忽略 `--n-gpu-layers` 并回退到 CPU。
-
-**为什么必须给 `--ctx-size` 一个上界**：llama.cpp 在加载时按上下文长度**一次性预留整个
-KV cache**，它往往远大于模型权重。以 `Hy-MT2-1.8B-Q4_K_M`（`hunyuan-dense`，32 层，
-4 个 KV 头，`context_length = 262144`）为例，每 token 的 KV 是
-`32 × 4 × (128+128) × 2 字节 = 64 KB`：
+**注意 llama.cpp 自身的默认值**：不设 `--n-gpu-layers` 时 `-ngl = 0`（纯 CPU）；不设
+`--ctx-size` 时它采用模型自身的训练上下文，而 KV cache 是按上下文长度**一次性预留**的，
+往往远大于权重。以 `Hy-MT2-1.8B-Q4_K_M`（`hunyuan-dense`，32 层，4 个 KV 头，
+`context_length = 262144`）为例，每 token 的 KV 是 `32 × 4 × (128+128) × 2 字节 = 64 KB`：
 
 | 上下文 | KV cache | 含 1.05 GB 权重的总占用 |
 |---|---|---|
-| 262144（不指定时的默认） | 16 GB | ~18 GB |
+| 262144（不设 --ctx-size 时的默认） | 16 GB | ~18 GB |
 | 32768 | 2 GB | ~4 GB |
-| 8192（本项目默认） | 0.5 GB | ~1.7 GB |
+| 8192 | 0.5 GB | ~1.7 GB |
+
+这两件事都由用户决定；`ModelAutoTuner` 只在**显式触发**时（模型编辑窗口的按钮、模型页的
+「自动调参」、命令行 `--autotune`）给出建议值，并以 `ResourceSettings.MaxVramUsagePercent`
+（默认 70%）为上限，避免建议值本身把卡吃满。
 
 模型加载完成后，`ModelLifecycleManager.WarnIfVramIsTightAsync` 会检查该进程占用的显存；
 超过显卡 85%（或空闲不足 512 MiB）时，在模型状态与运行日志中直接给出这条解释和可选处置

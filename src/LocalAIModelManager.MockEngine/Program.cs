@@ -67,6 +67,16 @@ internal static class Program
             return 0;
         }
 
+        // The manager probes this to learn whether GPU offload is actually possible. This
+        // demo engine has no compute backend, so it reports no devices - exactly like a
+        // CPU-only llama.cpp build - and must answer immediately instead of starting up.
+        if (Has("--list-devices"))
+        {
+            Console.WriteLine("Available devices:");
+            Console.WriteLine("  (none)");
+            return 0;
+        }
+
         if (Has("--version"))
         {
             Console.WriteLine($"version: {ReportedVersion.Value}");
@@ -547,6 +557,7 @@ internal static class Program
         Console.WriteLine("options:");
         Write("-h, --help", "print this help and exit");
         Write("--version", "show version and build info");
+        Write("--list-devices", "list the compute devices this build can use");
         Write("-m, --model <file>", "path to the model file");
         Write("--host <ip>", "ip address to listen on (default: 127.0.0.1)");
         Write("--port <n>", "port to listen on (default: 8080)");

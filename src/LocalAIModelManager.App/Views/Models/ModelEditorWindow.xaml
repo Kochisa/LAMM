@@ -75,17 +75,21 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" VerticalAlignment="Center"
-                           Text="模型参数（默认已按该 GGUF 的元数据与显卡显存自动填入；留空表示使用全局默认值）"
+                           Text="模型参数（未勾选 = 不下发；导入的模型默认为空，不套用任何推理参数）"
                            Style="{StaticResource Text.SectionTitle}" Margin="0" />
                 <Button Grid.Column="1" x:Name="AutoTuneButton" Content="按显存自动计算"
-                        Margin="0" Click="OnAutoTune" />
+                        Margin="0" Click="OnAutoTune"
+                        ToolTip="显式操作：读取 GGUF 元数据并结合显存给出建议值，填入下面的字段供你确认" />
             </Grid>
             <TextBlock x:Name="AutoTuneSummary" Style="{StaticResource Text.Muted}"
                        FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+            <TextBlock x:Name="GlobalHint" Style="{StaticResource Text.Muted}"
+                       FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
         </StackPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
                 <ItemsControl ItemsSource="{Binding Groups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -131,6 +135,17 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <StackPanel Margin="0,14,0,4">
+                    <TextBlock Text="其他参数（高级，一行一个 llama.cpp 参数）"
+                               Style="{StaticResource Text.SectionTitle}" />
+                    <TextBox Text="{Binding AdditionalArgumentsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Height="80" AcceptsReturn="True" TextWrapping="NoWrap"
+                             FontFamily="Cascadia Mono, Consolas" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="示例：--some-option value ／ --another-option。按原样追加到命令行；--model / --host / --port 由管理器托管。" />
+                </StackPanel>
+              </StackPanel>
             </ScrollViewer>
         </Border>
 

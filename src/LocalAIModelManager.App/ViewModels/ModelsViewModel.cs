@@ -180,6 +180,14 @@ public sealed class ModelsViewModel : PageViewModelBase
                 lines.Add(string.Empty);
                 lines.Add("实际启动命令行：");
                 lines.Add(row.LaunchCommandLine);
+
+                if (!row.LaunchCommandLine.Contains("--n-gpu-layers", StringComparison.OrdinalIgnoreCase) &&
+                    !row.LaunchCommandLine.Contains("-ngl", StringComparison.OrdinalIgnoreCase))
+                {
+                    lines.Add(string.Empty);
+                    lines.Add("提示：未设置 GPU 层数，将按引擎自身默认运行（llama.cpp 默认 -ngl 0，即纯 CPU）。"
+                              + "要用显卡请在「编辑…」里设置 --n-gpu-layers，或点「自动调参」。");
+                }
             }
 
             return string.Join(Environment.NewLine, lines);

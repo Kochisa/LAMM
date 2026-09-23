@@ -202,6 +202,12 @@ public sealed class LlamaCppBackendAdapter : OpenAiCompatibleBackendAdapter
             }
         }
 
+        // "Other" in the UI: raw CLI lines the user typed. Passed through verbatim and
+        // last, so they win over anything the catalog produced.
+        var (extraTokens, extraWarnings) = AdditionalArguments.Tokenize(request.AdditionalArguments);
+        warnings.AddRange(extraWarnings);
+        arguments.AddRange(extraTokens);
+
         var workingDirectory = string.IsNullOrWhiteSpace(engine.WorkingDirectory)
             ? Path.GetDirectoryName(engine.ExecutablePath) ?? Environment.CurrentDirectory
             : engine.WorkingDirectory!;

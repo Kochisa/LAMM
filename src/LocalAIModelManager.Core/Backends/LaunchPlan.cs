@@ -9,8 +9,17 @@ public sealed record LaunchRequest
 
     public required EngineDefinition Engine { get; init; }
 
-    /// <summary>Merged parameter set (settings defaults overlaid with per-model overrides).</summary>
+    /// <summary>
+    /// Merged parameter set: global user defaults overlaid with per-model overrides.
+    /// Only keys a human configured are present - an unset parameter is never invented.
+    /// </summary>
     public required IReadOnlyDictionary<string, string> Parameters { get; init; }
+
+    /// <summary>
+    /// Advanced CLI lines typed by hand (global + per model). Passed through verbatim,
+    /// in order, after the structured parameters.
+    /// </summary>
+    public IReadOnlyList<string> AdditionalArguments { get; init; } = Array.Empty<string>();
 
     public required int Port { get; init; }
 

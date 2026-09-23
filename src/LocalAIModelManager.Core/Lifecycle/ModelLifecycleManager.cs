@@ -243,7 +243,8 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             details.Add($"Detected supported parameters: {capabilities.Parameters.Count}");
         }
 
-        var parameters = MergeParameters(model);
+        var effective = ResolveParameters(model);
+        var parameters = effective.Parameters;
         var port = _ports.ReserveNext();
         if (port < 0)
         {
@@ -258,6 +259,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
                 Model = model,
                 Engine = engine,
                 Parameters = parameters,
+                AdditionalArguments = effective.AdditionalArguments,
                 Port = port,
                 BindHost = _settings.Current.Network.BackendBindHost,
                 Capabilities = capabilities,
@@ -446,12 +448,14 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
             slot.Port = port;
 
-            var parameters = MergeParameters(model);
+            var effective = ResolveParameters(model);
+            var parameters = effective.Parameters;
             var plan = adapter.BuildLaunchPlan(new LaunchRequest
             {
                 Model = model,
                 Engine = engine,
                 Parameters = parameters,
+                AdditionalArguments = effective.AdditionalArguments,
                 Port = port,
                 BindHost = _settings.Current.Network.BackendBindHost,
                 Capabilities = capabilities,
@@ -505,6 +509,14 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
             slot.Ready?.TrySetResult(ready);
             ModelLoaded?.Invoke(this, model.Id);
+
+            if (!effective.RequestsGpuOffload)
+            {
+                _logger.Info("lifecycle",
+                    $"模型 '{model.Id}' 未配置 --n-gpu-layers：将完全按引擎自身默认运行（llama.cpp 默认 0，即纯 CPU）。" +
+                    "需要显卡就在模型参数里显式设置该值。");
+            }
+
             await WarnIfVramIsTightAsync(slot, model, process, parameters, cancellationToken).ConfigureAwait(false);
             return ready;
         }
@@ -739,7 +751,20 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         return environment;
     }
 
-    private IReadOnlyDictionary<string, string> MergeParameters(ModelDefinition model)
+    /// <summary>What will actually be handed to the engine: only user-configured values.</summary>
+    private sealed record EffectiveParameters(
+        IReadOnlyDictionary<string, string> Parameters,
+        IReadOnlyList<string> AdditionalArguments)
+    {
+        public bool RequestsGpuOffload => Parameters.ContainsKey("--n-gpu-layers");
+    }
+
+    /// <summary>
+    /// Merges global user defaults with the model's own values. Nothing is invented here:
+    /// a parameter that no human configured simply does not appear, so the engine's own
+    /// default applies and VRAM usage stays a function of the model, not of this app.
+    /// </summary>
+    private EffectiveParameters ResolveParameters(ModelDefinition model)
     {
         var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var settings = _settings.Current;
@@ -765,7 +790,10 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             merged[key] = value;
         }
 
-        return merged;
+        var additional = new List<string>(settings.ModelParameters.AdditionalArguments);
+        additional.AddRange(model.AdditionalArguments);
+
+        return new EffectiveParameters(merged, additional);
     }
 
     private ModelRuntimeStatus BuildStatus(ModelDefinition model, ResourceSnapshot snapshot)

@@ -53,6 +53,9 @@ public partial class ModelEditorWindow : System.Windows.Window
 
     public ObservableCollection<ParameterGroupViewModel> Groups { get; } = new();
 
+    /// <summary>Advanced engine arguments typed by hand, one CLI line per entry.</summary>
+    public string AdditionalArgumentsText { get; set; } = string.Empty;
+
     public ModelDefinition? Result { get; private set; }
 
     private void OnEngineChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) => RebuildParameters();
@@ -67,42 +70,50 @@ public partial class ModelEditorWindow : System.Windows.Window
         }
 
         var capabilities = _services.GetCapabilities(engineId);
-        var globalDefaults = _services.Current.ModelParameters.Defaults;
+        var rows = new List<ParameterRowViewModel>();
 
-        foreach (var category in ParameterCategories.Ordered)
+        // Only the common parameters get a control. Obscure llama.cpp flags belong in the
+        // "Other" box, which keeps this dialog readable.
+        foreach (var key in EssentialParameters.Ordered)
         {
-            var rows = new List<ParameterRowViewModel>();
-
-            foreach (var descriptor in capabilities.ByCategory(category))
+            var descriptor = capabilities.Find(key) ?? ParameterCatalog.Find(key);
+            if (descriptor is null)
             {
-                var supported = capabilities.Supports(descriptor.Key);
-                var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
-
-                // Model override wins; otherwise inherit the global default so the
-                // dialog shows exactly what will be applied (e.g. GPU offload).
-                if (_model.Parameters.TryGetValue(descriptor.Key, out var value))
-                {
-                    row.IsEnabled = true;
-                    row.Value = value;
-                }
-                else if (globalDefaults.TryGetValue(descriptor.Key, out var globalValue))
-                {
-                    row.IsEnabled = true;
-                    row.Value = globalValue;
-                }
-                else if (!string.IsNullOrEmpty(descriptor.DefaultValue) && descriptor.Kind != ParameterKind.Boolean)
-                {
-                    row.Value = descriptor.DefaultValue!;
-                }
-
-                rows.Add(row);
+                continue;
             }
 
-            if (rows.Count > 0)
+            var supported = capabilities.Supports(key);
+            var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
+
+            // A model only carries what was explicitly set on it. Nothing is inherited
+            // from global defaults here and nothing is pre-filled: an imported model must
+            // start with zero custom inference parameters.
+            if (_model.Parameters.TryGetValue(key, out var value))
             {
-                Groups.Add(new ParameterGroupViewModel(category, rows));
+                row.IsEnabled = true;
+                row.Value = value;
             }
+            else
+            {
+                row.IsEnabled = false;
+                row.Value = descriptor.Kind == ParameterKind.Boolean ? "false" : string.Empty;
+            }
+
+            rows.Add(row);
         }
+
+        if (rows.Count > 0)
+        {
+            Groups.Add(new ParameterGroupViewModel("常用参数", rows));
+        }
+
+        AdditionalArgumentsText = string.Join(Environment.NewLine, _model.AdditionalArguments);
+
+        var globals = _services.Current.ModelParameters.Defaults;
+        GlobalHint.Text = globals.Count == 0
+            ? "未设置任何参数：引擎按自身默认值运行（llama.cpp 默认 -ngl 0，即纯 CPU）。"
+            : "全局默认值也会生效：" + string.Join("，", globals.Select(g => $"{g.Key}={g.Value}"));
+        GlobalHint.Visibility = System.Windows.Visibility.Visible;
     }
 
     private async void OnBrowseExecutable(object sender, System.Windows.RoutedEventArgs e)
@@ -128,9 +139,61 @@ public partial class ModelEditorWindow : System.Windows.Window
                 IdBox.Text = new string(candidate.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-').ToArray());
             }
 
-            // Importing a model should not require hand tuning: read the GGUF metadata and
-            // derive context size / GPU layers from it and from this machine's VRAM.
-            await ApplyAutoTuneAsync().ConfigureAwait(true);
+            // Read the model's own metadata and show it, but do NOT set any parameter:
+            // an imported model must start with zero custom inference parameters. The
+            // user can press 按显存自动计算 if they want suggestions.
+            await ShowMetadataAsync(dialog.FileName).ConfigureAwait(true);
+        }
+    }
+
+    private async Task ShowMetadataAsync(string path)
+    {
+        try
+        {
+            var metadata = await Task.Run(() => Core.Models.GgufMetadataReader.TryRead(path)).ConfigureAwait(true);
+            if (metadata is null)
+            {
+                AutoTuneSummary.Text = "无法读取该文件的 GGUF 元数据（不是 GGUF，或文件不完整）。参数保持为空。";
+                AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
+                return;
+            }
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(metadata.Architecture))
+            {
+                parts.Add(metadata.Architecture!);
+            }
+
+            if (metadata.BlockCount is { } layers)
+            {
+                parts.Add($"{layers} 层");
+            }
+
+            if (metadata.EffectiveHeadCountKv is { } kvHeads)
+            {
+                parts.Add($"{kvHeads} 个 KV 头");
+            }
+
+            if (metadata.ContextLength is { } trained)
+            {
+                parts.Add($"训练上下文 {trained}");
+            }
+
+            parts.Add($"权重 {metadata.FileSizeBytes / (1024.0 * 1024 * 1024):F2} GiB");
+
+            var kvLine = metadata.KvBytesPerToken() is { } kv
+                ? $" KV cache 约 {kv / 1024.0:F1} KB/token（未设 --ctx-size 时按训练上下文一次性预留）。"
+                : string.Empty;
+
+            AutoTuneSummary.Text =
+                "模型元数据：" + string.Join(" · ", parts) + "。" + kvLine
+                + Environment.NewLine + "未设置任何参数（未勾选 = 不下发）。需要建议值请点“按显存自动计算”。";
+            AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            AutoTuneSummary.Text = $"读取模型元数据失败：{ex.Message}";
+            AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
         }
     }
 
@@ -232,7 +295,7 @@ public partial class ModelEditorWindow : System.Windows.Window
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in Groups.SelectMany(g => g.Rows))
         {
-            if (row.IsEnabled && row.Supported)
+            if (row.IsEnabled && row.Supported && !string.IsNullOrWhiteSpace(row.Value))
             {
                 parameters[row.Key] = row.Value;
             }
@@ -246,6 +309,9 @@ public partial class ModelEditorWindow : System.Windows.Window
         model.Enabled = EnabledBox.IsChecked == true;
         model.Notes = string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();
         model.Parameters = parameters;
+        model.AdditionalArguments = (AdditionalArgumentsText ?? string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
         model.AutoLoad = false;
         model.Normalize();
 

@@ -138,6 +138,11 @@ public sealed class GenericOpenAiCompatibleAdapter : OpenAiCompatibleBackendAdap
             }
         }
 
+        // "Other" in the UI: raw CLI lines the user typed, passed through verbatim.
+        var (extraTokens, extraWarnings) = AdditionalArguments.Tokenize(request.AdditionalArguments);
+        warnings.AddRange(extraWarnings);
+        arguments.AddRange(extraTokens);
+
         return new LaunchPlan
         {
             ExecutablePath = request.Engine.ExecutablePath,

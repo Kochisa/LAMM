@@ -110,63 +110,69 @@ public sealed class EngineSettings
 
 public sealed class ModelParameterSettings
 {
-    /// <summary>Version of the built-in baseline that has already been seeded into <see cref="Defaults"/>.</summary>
+    /// <summary>
+    /// Version of the schema migrations already applied to this section. Bumping it is how
+    /// a one-off repair reaches existing configuration files.
+    /// </summary>
     public int DefaultsVersion { get; set; }
 
-    /// <summary>Current built-in baseline version. Bump when <see cref="BuiltInDefaults"/> changes.</summary>
-    public const int CurrentDefaultsVersion = 2;
+    /// <summary>Current schema version of this section.</summary>
+    public const int CurrentDefaultsVersion = 3;
 
     /// <summary>
-    /// Baseline applied to every model, tuned for a desktop with one GPU.
-    ///
-    /// <list type="bullet">
-    /// <item><c>--n-gpu-layers 99</c>: llama.cpp defaults to <c>-ngl 0</c> (pure CPU), which is
-    /// almost never what a desktop user wants.</item>
-    /// <item><c>--ctx-size 8192</c>: since llama.cpp treats an unset context as "use the model's
-    /// trained context", a long-context model silently reserves an enormous KV cache at load
-    /// time (a 256K-context 1.8B model costs ~16 GiB). Bounding the context keeps a small model
-    /// actually small; raise it per model when long context is needed.</item>
-    /// </list>
-    ///
-    /// Engines that do not advertise a flag simply drop it (with a warning).
+    /// Global parameter defaults, applied to every model unless that model overrides them.
+    /// EMPTY BY DEFAULT ON PURPOSE: nothing is inferred or added for the user. A parameter
+    /// only reaches llama-server when a human configured it here or on the model itself,
+    /// so VRAM usage is decided by the model and the engine's own defaults - not by
+    /// arbitrary values baked into this application.
     /// </summary>
-    public static IReadOnlyDictionary<string, string> BuiltInDefaults { get; } =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["--n-gpu-layers"] = "99",
-            ["--ctx-size"] = "8192",
-        };
-
-    /// <summary>Default CLI flag values applied to every model unless overridden.</summary>
     public Dictionary<string, string> Defaults { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Free-form extra flags appended verbatim.</summary>
+    /// <summary>
+    /// Free-form extra flags, one CLI line each (for example <c>--some-option value</c>).
+    /// Order is preserved and lines are appended verbatim to the engine command line.
+    /// </summary>
+    public List<string> AdditionalArguments { get; set; } = new();
+
+    /// <summary>Legacy flag/value form, kept so existing configuration files still load.</summary>
     public Dictionary<string, string> ExtraArguments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public void Normalize()
     {
         Defaults ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         ExtraArguments ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        AdditionalArguments ??= new List<string>();
 
         if (DefaultsVersion < CurrentDefaultsVersion)
         {
-            // One-time migration: seed the baseline, but never overwrite a value the
-            // user has already chosen. The version stamp means that if the user later
-            // deletes the entry on purpose, it stays deleted.
-            foreach (var (key, value) in BuiltInDefaults)
-            {
-                if (!Defaults.ContainsKey(key))
-                {
-                    Defaults[key] = value;
-                }
-            }
+            // Version 1 and 2 seeded GPU offload / context size automatically. Those were
+            // never the user's choices, so they are removed once; from now on the section
+            // is only ever filled by explicit user input.
+            RemoveIf(value: "99", key: "--n-gpu-layers");
+            RemoveIf(value: "8192", key: "--ctx-size");
 
             DefaultsVersion = CurrentDefaultsVersion;
         }
 
         Defaults = DictionaryNormalizer.Normalize(Defaults);
         ExtraArguments = DictionaryNormalizer.Normalize(ExtraArguments);
+        AdditionalArguments = NormalizeLines(AdditionalArguments);
     }
+
+    private void RemoveIf(string key, string value)
+    {
+        if (Defaults.TryGetValue(key, out var existing) &&
+            string.Equals(existing, value, StringComparison.OrdinalIgnoreCase))
+        {
+            Defaults.Remove(key);
+        }
+    }
+
+    internal static List<string> NormalizeLines(IEnumerable<string>? lines) =>
+        (lines ?? Enumerable.Empty<string>())
+            .Select(l => (l ?? string.Empty).Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
 }
 
 public sealed class LifecycleSettings

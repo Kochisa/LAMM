@@ -19,8 +19,18 @@ public sealed class ModelDefinition
     /// <summary>Id of the <see cref="EngineDefinition"/> that serves this model.</summary>
     public string EngineId { get; set; } = string.Empty;
 
-    /// <summary>Per-model overrides of the detected engine parameter catalog (CLI flag -> value).</summary>
+    /// <summary>
+    /// Per-model inference parameters (CLI flag -> value). EMPTY for a freshly imported
+    /// model: nothing is inferred, and an unset parameter is never passed to the engine.
+    /// </summary>
     public Dictionary<string, string> Parameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Advanced engine arguments typed by hand, one CLI line each
+    /// (for example <c>--some-option value</c> or a bare <c>--another-option</c>).
+    /// Appended verbatim, in order, after the structured parameters.
+    /// </summary>
+    public List<string> AdditionalArguments { get; set; } = new();
 
     /// <summary>Disabled models stay registered but are not served.</summary>
     public bool Enabled { get; set; } = true;
@@ -44,6 +54,7 @@ public sealed class ModelDefinition
         FilePath = FilePath,
         EngineId = EngineId,
         Parameters = new Dictionary<string, string>(Parameters, StringComparer.OrdinalIgnoreCase),
+        AdditionalArguments = new List<string>(AdditionalArguments),
         Enabled = Enabled,
         AutoLoad = AutoLoad,
         Notes = Notes,
@@ -71,6 +82,11 @@ public sealed class ModelDefinition
         }
 
         Parameters = cleaned;
+
+        AdditionalArguments = (AdditionalArguments ?? new List<string>())
+            .Select(l => (l ?? string.Empty).Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
 
         // Reboot / startup policy is not user-toggleable through normalization.
         AutoLoad = false;

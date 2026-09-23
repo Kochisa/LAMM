@@ -61,8 +61,33 @@ public static class ParameterCategories
 
     public static readonly IReadOnlyList<string> Ordered = new[]
     {
-        Context, KvCache, Gpu, Cpu, Batching, Speculative, Server, Detected,
+        Context, Gpu, Cpu, Batching, KvCache, Speculative, Server, Detected,
     };
+}
+
+/// <summary>
+/// The handful of parameters the user interface exposes directly. Everything else is
+/// reachable through the "Other" free-form argument box instead of dozens of controls,
+/// which keeps the page readable and keeps obscure flags out of the way.
+/// </summary>
+public static class EssentialParameters
+{
+    public const string ContextSize = "--ctx-size";
+    public const string GpuLayers = "--n-gpu-layers";
+    public const string Threads = "--threads";
+    public const string BatchSize = "--batch-size";
+    public const string UBatchSize = "--ubatch-size";
+    public const string CacheTypeK = "--cache-type-k";
+    public const string CacheTypeV = "--cache-type-v";
+
+    /// <summary>Order in which they appear in the UI.</summary>
+    public static readonly IReadOnlyList<string> Ordered = new[]
+    {
+        ContextSize, GpuLayers, Threads, BatchSize, UBatchSize, CacheTypeK, CacheTypeV,
+    };
+
+    public static bool IsEssential(string key) =>
+        Ordered.Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>
@@ -82,12 +107,12 @@ public static class ParameterCatalog
         new()
         {
             Key = "--ctx-size", DisplayName = "Context length", Category = ParameterCategories.Context,
-            Kind = ParameterKind.Integer, DefaultValue = "8192", Aliases = new[] { "-c" },
+            Kind = ParameterKind.Integer, Aliases = new[] { "-c" },
             ValueHint = "<n>",
-            Description = "Prompt context in tokens. llama.cpp reserves the whole KV cache at load "
-                        + "time, so this is usually the biggest VRAM consumer: a 32-layer / 4-KV-head "
-                        + "model costs about 64 KB per token (8192 -> 0.5 GiB, 262144 -> 16 GiB). "
-                        + "Unset means the model's trained context, which can be huge.",
+            Description = "Prompt context in tokens. Unset means llama.cpp decides - and it then uses "
+                        + "the model's trained context, which can be enormous: the KV cache is reserved "
+                        + "up front for the full context (about 64 KB per token for a 32-layer / "
+                        + "4-KV-head model, so 256K context = 16 GiB). Set it explicitly to bound VRAM.",
         },
         new()
         {
@@ -145,10 +170,10 @@ public static class ParameterCatalog
         new()
         {
             Key = "--n-gpu-layers", DisplayName = "GPU layers (offload)", Category = ParameterCategories.Gpu,
-            Kind = ParameterKind.Integer, DefaultValue = "99", Aliases = new[] { "-ngl" },
+            Kind = ParameterKind.Integer, Aliases = new[] { "-ngl" },
             ValueHint = "<n|auto|all>",
-            Description = "Transformer layers offloaded to the GPU. The manager defaults this to 99 "
-                        + "(all layers) so models run on the GPU; set it to 0 to force CPU.",
+            Description = "Transformer layers offloaded to the GPU. Unset means llama.cpp's own default, "
+                        + "which is 0 - pure CPU. Set 99 (or 'all') to offload everything, or 0 to be explicit.",
         },
         new()
         {

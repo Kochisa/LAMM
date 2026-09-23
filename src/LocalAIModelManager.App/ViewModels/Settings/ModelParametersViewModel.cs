@@ -120,6 +120,7 @@ public sealed class ModelParametersViewModel : PageViewModelBase
 {
     private EngineOption? _selectedEngine;
     private string _summary = string.Empty;
+    private string _additionalArgumentsText = string.Empty;
     private bool _initialized;
 
     public ModelParametersViewModel(AppServices services)
@@ -133,11 +134,19 @@ public sealed class ModelParametersViewModel : PageViewModelBase
     public override string Title => "模型参数";
 
     public override string Description =>
-        "参数的可见项由所安装引擎的 --help 输出决定，升级 llama.cpp 后会自动出现新参数。这里设置的是全局默认值，单个模型可以覆盖。";
+        "只暴露最常用的几项；其余 llama.cpp 参数写在“其他参数”里，一行一个。"
+        + "未勾选/留空的参数不会传给引擎——VRAM 由模型和引擎自身的默认值决定，而不是由本应用替你决定。";
 
     public ObservableCollection<EngineOption> EngineOptions { get; } = new();
 
     public ObservableCollection<ParameterGroupViewModel> Groups { get; } = new();
+
+    /// <summary>Free-form advanced arguments, one CLI line per entry.</summary>
+    public string AdditionalArgumentsText
+    {
+        get => _additionalArgumentsText;
+        set => SetProperty(ref _additionalArgumentsText, value);
+    }
 
     public EngineOption? SelectedEngine
     {
@@ -205,58 +214,58 @@ public sealed class ModelParametersViewModel : PageViewModelBase
 
         var capabilities = Services.GetCapabilities(engineDefinition.Id);
         var defaults = Services.Current.ModelParameters.Defaults;
+
+        // Only the handful of parameters that people actually change are exposed as
+        // controls. Everything else is reachable through the free-form "Other" box, so
+        // the page stays readable instead of listing dozens of obscure flags.
         var rows = new List<ParameterRowViewModel>();
+        var unsupported = new List<string>();
 
-        foreach (var descriptor in capabilities.Parameters)
+        foreach (var key in EssentialParameters.Ordered)
         {
-            var supported = capabilities.Supports(descriptor.Key);
-            var engineDefault = descriptor.DefaultValue;
-            var row = new ParameterRowViewModel(descriptor, supported, engineDefault);
+            var descriptor = capabilities.Find(key) ?? ParameterCatalog.Find(key);
+            if (descriptor is null)
+            {
+                continue;
+            }
 
-            if (defaults.TryGetValue(descriptor.Key, out var configured))
+            var supported = capabilities.Supports(key);
+            if (!supported)
+            {
+                unsupported.Add(key);
+            }
+
+            var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
+
+            // Unset stays unset: a parameter that was never configured is shown switched
+            // off with an empty value, and is NOT passed to the engine.
+            if (defaults.TryGetValue(key, out var configured))
             {
                 row.IsEnabled = true;
                 row.Value = configured;
             }
             else
             {
-                // Not explicitly configured: shown as a hint value, switched off.
                 row.IsEnabled = false;
-                row.Value = descriptor.Kind == ParameterKind.Boolean
-                    ? "false"
-                    : engineDefault ?? string.Empty;
+                row.Value = descriptor.Kind == ParameterKind.Boolean ? "false" : string.Empty;
             }
 
             rows.Add(row);
         }
 
-        // Catalog entries the engine does not advertise are still shown, greyed out,
-        // so the user can see exactly what this build is missing.
-        var advertised = capabilities.Parameters.Select(p => p.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var descriptor in ParameterCatalog.Known.Where(k => !advertised.Contains(k.Key)))
+        if (rows.Count > 0)
         {
-            var row = new ParameterRowViewModel(descriptor, supported: false, descriptor.DefaultValue) { Value = descriptor.DefaultValue ?? string.Empty };
-            rows.Add(row);
+            Groups.Add(new ParameterGroupViewModel("常用参数", rows));
         }
 
-        foreach (var category in ParameterCategories.Ordered)
-        {
-            var categoryRows = rows
-                .Where(r => string.Equals(r.Category, category, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(r => r.Descriptor.DetectedOnly ? 1 : 0)
-                .ThenBy(r => r.Key, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        AdditionalArgumentsText = string.Join(
+            Environment.NewLine,
+            Services.Current.ModelParameters.AdditionalArguments);
 
-            if (categoryRows.Count > 0)
-            {
-                Groups.Add(new ParameterGroupViewModel(category, categoryRows));
-            }
-        }
-
-        var supportedCount = capabilities.Parameters.Count;
         Summary = capabilities.IsAvailable
-            ? $"引擎 {engineDefinition.Id}（版本 {capabilities.Version ?? "未知"}）：可用参数 {supportedCount} 个，" +
-              $"未支持 {rows.Count - supportedCount} 个。"
+            ? $"引擎 {engineDefinition.Id}（版本 {capabilities.Version ?? "未知"}）。"
+              + $"仅以下 {rows.Count} 项会作为控件显示；其他参数请写在“其他参数”里。"
+              + (unsupported.Count > 0 ? $" 该构建不支持：{string.Join("、", unsupported)}。" : string.Empty)
             : $"引擎能力不可用：{capabilities.Error}";
 
         SetStatus(string.Empty);
@@ -268,20 +277,28 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         var invalid = rows.Where(r => r.IsEnabled && r.IsText && string.IsNullOrWhiteSpace(r.Value)).ToList();
         if (invalid.Count > 0)
         {
-            SetError("以下参数已启用但没有填写值：" + string.Join("、", invalid.Select(r => r.Key)));
+            SetError("以下参数已勾选但没有填写值：" + string.Join("、", invalid.Select(r => r.Key)));
             return;
         }
 
+        var additional = AdditionalArgumentsText
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
         Services.SaveSettings(settings =>
         {
+            // Rebuild from scratch: whatever is not switched on is simply not sent.
             settings.ModelParameters.Defaults.Clear();
             foreach (var row in rows.Where(r => r.IsEnabled && r.Supported))
             {
                 settings.ModelParameters.Defaults[row.Key] = row.Value;
             }
+
+            settings.ModelParameters.AdditionalArguments = additional;
         });
 
-        SetStatus($"已保存 {rows.Count(r => r.IsEnabled && r.Supported)} 个默认参数。");
+        var count = rows.Count(r => r.IsEnabled && r.Supported);
+        SetStatus($"已保存 {count} 个默认参数，另有 {additional.Count} 行自定义参数。未勾选的参数不会传给引擎。");
         Services.Notify("模型参数默认值已保存。");
         await Task.CompletedTask.ConfigureAwait(true);
     }

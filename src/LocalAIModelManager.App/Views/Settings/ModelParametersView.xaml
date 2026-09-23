@@ -38,6 +38,7 @@
 
         <Border Grid.Row="2" Style="{StaticResource Card}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
                 <ItemsControl ItemsSource="{Binding Groups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -93,6 +94,18 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <StackPanel Margin="0,4,0,10">
+                    <TextBlock Text="其他参数（高级，直接写 llama.cpp 参数，一行一个）"
+                               Style="{StaticResource Text.SectionTitle}" />
+                    <TextBox Text="{Binding AdditionalArgumentsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CodeBlock}"
+                             Height="120" AcceptsReturn="True" TextWrapping="NoWrap"
+                             FontFamily="Cascadia Mono, Consolas" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="示例：--some-option value ／ --another-option（不需要值的开关单独一行）。这些行会按原样追加到 llama-server 命令行；--model / --host / --port 由管理器托管，写了也会被忽略。" />
+                </StackPanel>
+              </StackPanel>
             </ScrollViewer>
         </Border>
 
@@ -100,13 +113,13 @@
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Status.Ready}"
                        Visibility="{Binding StatusMessage, Converter={StaticResource EmptyToVisibility}}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="默认已启用 GPU 卸载（--n-gpu-layers = 99）与上下文上限（--ctx-size = 8192）。若要强制用 CPU，把 GPU layers 改成 0；改完保存默认值后需到「模型」页点「重启」才生效。" />
+                       Text="核心规则：未勾选 = 不下发。本应用不会替你填任何推理参数，VRAM 占用由模型和 llama.cpp 自身默认值决定。" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="显存被吃满多半是 KV cache：它按上下文长度一次性预留。不指定 --ctx-size 时引擎会采用模型自身的训练上下文，长上下文模型（128K/256K）可达十几 GB。需要长上下文就调大它，并用 --cache-type-k / --cache-type-v 选 q8_0 压缩，或勾选 Keep KV cache on CPU。" />
+                       Text="注意 llama.cpp 自身的默认值：不设 --n-gpu-layers 时 -ngl = 0（纯 CPU）；不设 --ctx-size 时它采用模型自身的训练上下文，而 KV cache 是按上下文一次性预留的，长上下文模型可能占用十几 GB 显存。" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="灰色且无法勾选的参数表示当前安装的引擎不支持它们；升级或更换引擎后重新探测即可使用。" />
+                       Text="不想自己算就用「模型」页的「自动调参」——它会读 GGUF 元数据并结合显存给出建议值，但那是一次显式操作。" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="层数超过 99 的超大模型请把 GPU layers 调大。没有可用 GPU 时，llama.cpp 会忽略该参数并回退到 CPU。" />
+                       Text="改完保存后，已加载的模型需要到「模型」页点「重启」才会用新参数。" />
         </StackPanel>
     </Grid>
 </UserControl>
