@@ -37,6 +37,10 @@
             <Button Content="停止" Command="{Binding StopCommand}" />
             <Button Content="重启" Command="{Binding RestartCommand}" />
             <Button Content="测试" Command="{Binding TestCommand}" />
+            <Button Content="自动调参" Style="{StaticResource Button.Primary}" Command="{Binding AutoTuneCommand}"
+                    ToolTip="读取该 GGUF 的层数 / KV 头 / 训练上下文，结合显卡显存自动算出 --ctx-size 与 --n-gpu-layers" />
+            <Button Content="全部自动调参" Command="{Binding AutoTuneAllCommand}"
+                    ToolTip="对列表中所有模型依次执行自动调参" />
             <Button Content="卸载全部" Command="{Binding UnloadAllCommand}" />
             <Button Content="复制 ID" Command="{Binding CopyIdCommand}" />
             <Button Content="打开所在目录" Command="{Binding OpenFolderCommand}" />
@@ -101,7 +105,7 @@
         <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,14,0,0"
                 Visibility="{Binding TestOutput, Converter={StaticResource EmptyToVisibility}}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="测试输出" Style="{StaticResource Text.SectionTitle}" />
+                <TextBlock DockPanel.Dock="Top" Text="测试 / 自动调参输出" Style="{StaticResource Text.SectionTitle}" />
                 <TextBox Text="{Binding TestOutput, Mode=OneWay}" Style="{StaticResource CodeBlock}" Height="150" />
             </DockPanel>
         </Border>

@@ -214,10 +214,18 @@ public sealed class ResourceSettings
     /// <summary>Attribute VRAM usage to individual backend child processes via nvidia-smi.</summary>
     public bool TrackPerProcessVram { get; set; } = true;
 
+    /// <summary>
+    /// Ceiling the automatic parameter tuning will spend on a single model, as a
+    /// percentage of total VRAM. Keeping this below 100 is what stops a small model
+    /// with a long context from filling the whole card and starving everything else.
+    /// </summary>
+    public int MaxVramUsagePercent { get; set; } = 70;
+
     public void Normalize()
     {
         PollIntervalMs = Math.Clamp(PollIntervalMs, 250, 60_000);
         GpuIndex = Math.Max(0, GpuIndex);
+        MaxVramUsagePercent = Math.Clamp(MaxVramUsagePercent, 20, 100);
     }
 }
 

@@ -109,6 +109,8 @@ public sealed class ModelsViewModel : PageViewModelBase
         StopCommand = new AsyncRelayCommand(() => StopAsync(), () => Selected is not null && !IsBusy);
         RestartCommand = new AsyncRelayCommand(() => RestartAsync(), () => Selected is not null && !IsBusy);
         TestCommand = new AsyncRelayCommand(() => TestAsync(), () => Selected is not null && !IsBusy);
+        AutoTuneCommand = new AsyncRelayCommand(AutoTuneAsync, () => Selected is not null && !IsBusy);
+        AutoTuneAllCommand = new AsyncRelayCommand(AutoTuneAllAsync, () => Models.Count > 0 && !IsBusy);
         UnloadAllCommand = new AsyncRelayCommand(UnloadAllAsync, () => !IsBusy);
         RefreshCommand = new RelayCommand(_ => ReloadRows());
         CopyIdCommand = new RelayCommand(_ => CopySelectedId(), _ => Selected is not null);
@@ -190,6 +192,10 @@ public sealed class ModelsViewModel : PageViewModelBase
         private set => SetProperty(ref _testOutput, value);
     }
 
+    public ICommand AutoTuneCommand { get; }
+
+    public ICommand AutoTuneAllCommand { get; }
+
     public ICommand AddCommand { get; }
 
     public ICommand EditCommand { get; }
@@ -270,7 +276,7 @@ public sealed class ModelsViewModel : PageViewModelBase
 
     private void UpdateCommandStates()
     {
-        foreach (var command in new ICommand[] { EditCommand, RenameCommand, DeleteCommand, StartCommand, StopCommand, RestartCommand, TestCommand })
+        foreach (var command in new ICommand[] { EditCommand, RenameCommand, DeleteCommand, StartCommand, StopCommand, RestartCommand, TestCommand, AutoTuneCommand, AutoTuneAllCommand })
         {
             (command as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
@@ -425,9 +431,107 @@ public sealed class ModelsViewModel : PageViewModelBase
         RefreshStatuses();
     }, "正在重启模型…");
 
-    private Task TestAsync() => RunAsync(async () =>
+    /// <summary>
+    /// Reads the model file's own GGUF metadata and combines it with the card's VRAM to
+    /// write sensible parameters, so importing a model is one click instead of hand tuning.
+    /// </summary>
+    private Task AutoTuneAsync() => RunAsync(async () =>
     {
         var row = Selected!;
+        var model = Services.Models.Get(row.Id)
+                    ?? throw new InvalidOperationException($"模型 {row.Id} 已不存在。");
+
+        var result = await Services.AutoTuneAsync(model.FilePath).ConfigureAwait(true);
+
+        var updated = model.Clone();
+        foreach (var (key, value) in result.Parameters)
+        {
+            updated.Parameters[key] = value;
+        }
+
+        Services.Models.Update(updated);
+
+        TestOutput = BuildTuningReport(model, result, wasLoaded: row.IsLoaded);
+        SetStatus(result.UsedFallback
+            ? $"已为 {model.Id} 写入保守默认参数（元数据或显存信息不足）。"
+            : $"已按模型元数据与显存为 {model.Id} 写入参数。"
+              + (row.IsLoaded ? " 该模型当前已加载，请点「重启」生效。" : string.Empty));
+
+        ReloadRows();
+    }, "正在读取模型元数据并按显存计算参数…");
+
+    private Task AutoTuneAllAsync() => RunAsync(async () =>
+    {
+        var all = Services.Models.All;
+        var lines = new List<string>();
+        var changed = 0;
+
+        foreach (var model in all)
+        {
+            var result = await Services.AutoTuneAsync(model.FilePath).ConfigureAwait(true);
+            if (result.UsedFallback)
+            {
+                lines.Add($"· {model.Id}：跳过（{string.Join(" ", result.Warnings)}）");
+                continue;
+            }
+
+            var updated = model.Clone();
+            foreach (var (key, value) in result.Parameters)
+            {
+                updated.Parameters[key] = value;
+            }
+
+            Services.Models.Update(updated);
+            changed++;
+            lines.Add($"· {model.Id}：{string.Join("　", result.Explanation.Skip(1))}");
+        }
+
+        TestOutput = $"按显存自动调参（{changed}/{all.Count} 个模型已更新）"
+                     + Environment.NewLine + Environment.NewLine
+                     + string.Join(Environment.NewLine, lines)
+                     + Environment.NewLine + Environment.NewLine
+                     + "已加载的模型需要点「重启」才会使用新参数。";
+
+        SetStatus($"已自动调参 {changed} 个模型。");
+        ReloadRows();
+    }, "正在为所有模型读取元数据并计算参数…");
+
+    private static string BuildTuningReport(
+        Core.Models.ModelDefinition model,
+        Core.Models.AutoTuneResult result,
+        bool wasLoaded)
+    {
+        var lines = new List<string>
+        {
+            $"自动调参：{model.Id}",
+            $"文件：{model.FilePath}",
+            string.Empty,
+        };
+
+        lines.AddRange(result.Explanation.Select(e => "· " + e));
+
+        if (result.Warnings.Count > 0)
+        {
+            lines.Add(string.Empty);
+            lines.Add("注意：");
+            lines.AddRange(result.Warnings.Select(w => "! " + w));
+        }
+
+        lines.Add(string.Empty);
+        lines.Add("已写入模型的参数：");
+        lines.AddRange(result.Parameters.Select(p => $"  {p.Key} = {p.Value}"));
+
+        if (wasLoaded)
+        {
+            lines.Add(string.Empty);
+            lines.Add("该模型当前已加载，参数改动需要点「重启」才会生效。");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private Task TestAsync() => RunAsync(async () =>
+    {        var row = Selected!;
         var result = await Services.Lifecycle.TestAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
 
         var lines = new List<string> { $"模型：{row.Id}", $"结论：{result.Summary}", string.Empty };

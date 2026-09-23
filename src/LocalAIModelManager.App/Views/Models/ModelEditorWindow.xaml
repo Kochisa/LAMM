@@ -68,8 +68,21 @@
             <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" x:Name="NotesBox" Margin="0,4,0,4" />
         </Grid>
 
-        <TextBlock Grid.Row="1" Text="模型参数（仅显示所选引擎实际支持的参数；留空表示使用全局默认值）"
-                   Style="{StaticResource Text.SectionTitle}" Margin="0,14,0,8" />
+        <StackPanel Grid.Row="1" Margin="0,14,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           Text="模型参数（默认已按该 GGUF 的元数据与显卡显存自动填入；留空表示使用全局默认值）"
+                           Style="{StaticResource Text.SectionTitle}" Margin="0" />
+                <Button Grid.Column="1" x:Name="AutoTuneButton" Content="按显存自动计算"
+                        Margin="0" Click="OnAutoTune" />
+            </Grid>
+            <TextBlock x:Name="AutoTuneSummary" Style="{StaticResource Text.Muted}"
+                       FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">

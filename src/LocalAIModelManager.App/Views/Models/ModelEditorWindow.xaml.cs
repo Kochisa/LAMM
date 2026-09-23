@@ -105,7 +105,7 @@ public partial class ModelEditorWindow : System.Windows.Window
         }
     }
 
-    private void OnBrowseExecutable(object sender, System.Windows.RoutedEventArgs e)
+    private async void OnBrowseExecutable(object sender, System.Windows.RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
@@ -127,6 +127,57 @@ public partial class ModelEditorWindow : System.Windows.Window
                 var candidate = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName).ToLowerInvariant();
                 IdBox.Text = new string(candidate.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-').ToArray());
             }
+
+            // Importing a model should not require hand tuning: read the GGUF metadata and
+            // derive context size / GPU layers from it and from this machine's VRAM.
+            await ApplyAutoTuneAsync().ConfigureAwait(true);
+        }
+    }
+
+    private async void OnAutoTune(object sender, System.Windows.RoutedEventArgs e) =>
+        await ApplyAutoTuneAsync().ConfigureAwait(true);
+
+    private async Task ApplyAutoTuneAsync()
+    {
+        var path = FilePathBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            AutoTuneSummary.Text = "请先选择存在的模型文件，然后才能自动计算参数。";
+            AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
+            return;
+        }
+
+        AutoTuneButton.IsEnabled = false;
+        try
+        {
+            var result = await _services.AutoTuneAsync(path).ConfigureAwait(true);
+
+            foreach (var row in Groups.SelectMany(g => g.Rows))
+            {
+                if (result.Parameters.TryGetValue(row.Key, out var value))
+                {
+                    row.IsEnabled = row.Supported;
+                    row.Value = value;
+                }
+            }
+
+            var lines = new List<string>(result.Explanation);
+            if (result.Warnings.Count > 0)
+            {
+                lines.AddRange(result.Warnings.Select(w => "⚠ " + w));
+            }
+
+            AutoTuneSummary.Text = string.Join(Environment.NewLine, lines);
+            AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            AutoTuneSummary.Text = $"自动调参失败：{ex.Message}";
+            AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
+        }
+        finally
+        {
+            AutoTuneButton.IsEnabled = true;
         }
     }
 

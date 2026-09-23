@@ -114,6 +114,59 @@ public sealed class AppServices
         return capabilities;
     }
 
+    /// <summary>
+    /// Reads the model file's own metadata and combines it with the current VRAM situation
+    /// to derive launch parameters. This is what keeps importing a model from turning into
+    /// manual tuning of context size, GPU layers and KV cache.
+    /// </summary>
+    public async Task<Core.Models.AutoTuneResult> AutoTuneAsync(
+        string modelFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = Settings.Current;
+        var snapshot = Runtime.Resources.Current;
+
+        if (settings.Resources.MonitorEnabled)
+        {
+            try
+            {
+                snapshot = await Runtime.Resources.RefreshAsync(cancellationToken).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Runtime.Logs.Warn("resources", $"自动调参前读取显存失败：{ex.Message}");
+            }
+        }
+
+        var gpu = snapshot.PrimaryGpu;
+        var input = new Core.Models.AutoTuneInput
+        {
+            ModelFilePath = modelFilePath,
+            GpuAvailable = snapshot.GpuAvailable,
+            TotalVramBytes = gpu?.TotalBytes,
+            FreeVramBytes = gpu?.FreeBytes,
+            MinFreeVramMiB = settings.Lifecycle.MinFreeVramMiB,
+            MaxVramUsagePercent = settings.Resources.MaxVramUsagePercent,
+            FallbackGpuLayers = settings.ModelParameters.Defaults.TryGetValue("--n-gpu-layers", out var layers) &&
+                                int.TryParse(layers, out var parsedLayers) && parsedLayers > 0
+                ? parsedLayers
+                : 99,
+            FallbackContextSize = settings.ModelParameters.Defaults.TryGetValue("--ctx-size", out var ctx) &&
+                                  int.TryParse(ctx, out var parsedCtx) && parsedCtx > 0
+                ? parsedCtx
+                : 8192,
+        };
+
+        var result = await Task.Run(() => Core.Models.ModelAutoTuner.Tune(input), cancellationToken).ConfigureAwait(true);
+
+        Runtime.Logs.Info("autotune",
+            $"模型 '{Path.GetFileName(modelFilePath)}' 自动调参：" +
+            string.Join("；", result.Explanation) +
+            (result.Warnings.Count > 0 ? " | 警告：" + string.Join("；", result.Warnings) : string.Empty));
+
+        return result;
+    }
+
     public void InvalidateCapabilities(string? engineId = null)
     {
         lock (_capabilityGate)

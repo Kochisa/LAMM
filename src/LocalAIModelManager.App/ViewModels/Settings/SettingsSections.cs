@@ -384,6 +384,19 @@ public static class SettingsSections
                     Read = s => Bool(s.Resources.TrackPerProcessVram),
                     Write = (s, v) => s.Resources.TrackPerProcessVram = Parse(v),
                 },
+                new()
+                {
+                    Key = "maxVramUsagePercent",
+                    Label = "单模型显存使用上限",
+                    Suffix = "%",
+                    Kind = SettingFieldKind.Number,
+                    Min = 20,
+                    Max = 100,
+                    Help = "自动调参按这个上限给模型配上下文。默认 70%，留出余量给浏览器等其他程序；" +
+                           "调到 100% 就等于「能塞多少塞多少」，小模型的长上下文会重新把显存吃满。",
+                    Read = s => s.Resources.MaxVramUsagePercent.ToString(),
+                    Write = (s, v) => s.Resources.MaxVramUsagePercent = int.Parse(v),
+                },
             },
             Notes = services =>
             {

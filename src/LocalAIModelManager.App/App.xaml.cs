@@ -32,6 +32,15 @@ public partial class App : Application
         base.OnStartup(e);
         UiDispatcher.Initialize(Dispatcher);
 
+        // Headless commands run before anything else (no window, no single-instance
+        // mutex, no gateway) so the manager can be scripted.
+        var commandLineExit = await TryRunCommandLineAsync(e.Args).ConfigureAwait(true);
+        if (commandLineExit is not null)
+        {
+            Shutdown(commandLineExit.Value);
+            return;
+        }
+
         var startMinimized = e.Args.Any(a => string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase));
         var startedByWindows = e.Args.Any(a => string.Equals(a, "--startup", StringComparison.OrdinalIgnoreCase));
 
@@ -150,6 +159,89 @@ public partial class App : Application
         }
 
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Headless command line support.
+    ///
+    /// <c>--autotune &lt;model.gguf&gt; [--out &lt;report.txt&gt;]</c> reads the model's own GGUF
+    /// metadata, combines it with this machine's VRAM and writes the parameters it would
+    /// use, so model import can be scripted instead of hand tuned.
+    /// Returns null when the arguments do not contain a headless command.
+    /// </summary>
+    private static async Task<int?> TryRunCommandLineAsync(string[] args)
+    {
+        var autotuneIndex = Array.FindIndex(args, a => string.Equals(a, "--autotune", StringComparison.OrdinalIgnoreCase));
+        if (autotuneIndex < 0)
+        {
+            return null;
+        }
+
+        if (autotuneIndex + 1 >= args.Length)
+        {
+            Console.Error.WriteLine("usage: LocalAIModelManager.exe --autotune <model.gguf> [--out <report.txt>]");
+            return 2;
+        }
+
+        var modelPath = args[autotuneIndex + 1];
+        var outIndex = Array.FindIndex(args, a => string.Equals(a, "--out", StringComparison.OrdinalIgnoreCase));
+        var reportPath = outIndex >= 0 && outIndex + 1 < args.Length
+            ? args[outIndex + 1]
+            : modelPath + ".autotune.txt";
+
+        try
+        {
+            await using var monitor = new Core.Resources.SystemResourceMonitor(
+                Core.Logging.NullAppLogger.Instance,
+                TimeSpan.FromSeconds(5));
+
+            var snapshot = await monitor.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
+            var gpu = snapshot.PrimaryGpu;
+
+            var maxVramIndex = Array.FindIndex(args, a => string.Equals(a, "--max-vram", StringComparison.OrdinalIgnoreCase));
+            var maxVramPercent = maxVramIndex >= 0 &&
+                                 maxVramIndex + 1 < args.Length &&
+                                 int.TryParse(args[maxVramIndex + 1], out var parsedPercent)
+                ? parsedPercent
+                : 70;
+
+            var result = Core.Models.ModelAutoTuner.Tune(new Core.Models.AutoTuneInput
+            {
+                ModelFilePath = modelPath,
+                GpuAvailable = snapshot.GpuAvailable,
+                TotalVramBytes = gpu?.TotalBytes,
+                FreeVramBytes = gpu?.FreeBytes,
+                MaxVramUsagePercent = maxVramPercent,
+            });
+
+            var report = new List<string>
+            {
+                $"模型：{modelPath}",
+                string.Empty,
+            };
+            report.AddRange(result.Explanation.Select(line => "· " + line));
+            if (result.Warnings.Count > 0)
+            {
+                report.Add(string.Empty);
+                report.Add("注意：");
+                report.AddRange(result.Warnings.Select(w => "! " + w));
+            }
+
+            report.Add(string.Empty);
+            report.Add("参数：");
+            report.AddRange(result.Parameters.Select(p => $"  {p.Key} = {p.Value}"));
+
+            var text = string.Join(Environment.NewLine, report);
+            File.WriteAllText(reportPath, text);
+            Console.WriteLine(text);
+
+            return result.UsedFallback ? 1 : 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"autotune failed: {ex.Message}");
+            return 3;
+        }
     }
 
     private void ShowMainWindow()
