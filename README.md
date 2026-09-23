@@ -1,5 +1,7 @@
 # LAMM
 
+<img align="right" width="104" src="docs/assets/lamm-icon-512.png" alt="LAMM icon">
+
 **LAMM（Local AI Model Manager）** 是一款面向 Windows 的本地 AI 模型管理器。
 
 LAMM 本身不绑定特定的推理框架或模型，而是负责统一管理本地 AI 模型、推理引擎、模型参数以及模型生命周期。
