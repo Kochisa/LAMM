@@ -37,8 +37,15 @@ public static class SettingsSections
     /// Selectable language codes. The option label is the native display name from
     /// <see cref="Localizer.Languages"/>; the stored value is always the code.
     /// </summary>
+    /// <summary>
+    /// Options for the interface-language picker: the NATIVE names, not codes and not
+    /// translations. Both the option list and the field value use these names - a combo box
+    /// whose items are codes while its SelectedItem is a display name can never match, which
+    /// leaves the control blank and shows the wrong current value. The Read/Write callbacks
+    /// translate between the name and the stored code.
+    /// </summary>
     public static IReadOnlyList<string> LanguageChoices() =>
-        Localizer.Languages.Select(l => l.Code).ToList();
+        Localizer.Languages.Select(l => l.DisplayName).ToList();
 
     /// <summary>Display name for a stored language code.</summary>
     public static string LanguageDisplay(string? code)
@@ -58,8 +65,8 @@ public static class SettingsSections
         new()
         {
             Key = General,
-            Title = Loc.T("page.settingsGeneral.title"),
-            Description = Loc.T("page.settingsGeneral.desc"),
+            TitleKey = "page.settingsGeneral.title",
+            DescriptionKey = "page.settingsGeneral.desc",
             Fields = new List<SettingField>
             {
                 new()
@@ -175,8 +182,8 @@ public static class SettingsSections
         new()
         {
             Key = Api,
-            Title = Loc.T("page.settingsApi.title"),
-            Description = Loc.T("page.settingsApi.desc"),
+            TitleKey = "page.settingsApi.title",
+            DescriptionKey = "page.settingsApi.desc",
             RequiresGatewayRestart = true,
             Fields = new List<SettingField>
             {
@@ -283,8 +290,8 @@ public static class SettingsSections
         new()
         {
             Key = InferenceEngine,
-            Title = Loc.T("page.settingsEngine.title"),
-            Description = Loc.T("page.settingsEngine.desc"),
+            TitleKey = "page.settingsEngine.title",
+            DescriptionKey = "page.settingsEngine.desc",
             Fields = Array.Empty<SettingField>(),
         },
 
@@ -292,8 +299,8 @@ public static class SettingsSections
         new()
         {
             Key = ModelParameters,
-            Title = Loc.T("page.settingsModelParameters.title"),
-            Description = Loc.T("page.settingsModelParameters.desc"),
+            TitleKey = "page.settingsModelParameters.title",
+            DescriptionKey = "page.settingsModelParameters.desc",
             Fields = Array.Empty<SettingField>(),
         },
 
@@ -301,8 +308,8 @@ public static class SettingsSections
         new()
         {
             Key = Lifecycle,
-            Title = Loc.T("page.settingsLifecycle.title"),
-            Description = Loc.T("page.settingsLifecycle.desc"),
+            TitleKey = "page.settingsLifecycle.title",
+            DescriptionKey = "page.settingsLifecycle.desc",
             Fields = new List<SettingField>
             {
                 new()
@@ -383,8 +390,8 @@ public static class SettingsSections
         new()
         {
             Key = Resources,
-            Title = Loc.T("page.settingsResources.title"),
-            Description = Loc.T("page.settingsResources.desc"),
+            TitleKey = "page.settingsResources.title",
+            DescriptionKey = "page.settingsResources.desc",
             Fields = new List<SettingField>
             {
                 new()
@@ -479,8 +486,8 @@ public static class SettingsSections
         new()
         {
             Key = Network,
-            Title = Loc.T("page.settingsNetwork.title"),
-            Description = Loc.T("page.settingsNetwork.desc"),
+            TitleKey = "page.settingsNetwork.title",
+            DescriptionKey = "page.settingsNetwork.desc",
             Fields = new List<SettingField>
             {
                 new()
@@ -539,8 +546,8 @@ public static class SettingsSections
         new()
         {
             Key = Advanced,
-            Title = Loc.T("page.settingsAdvanced.title"),
-            Description = Loc.T("page.settingsAdvanced.desc"),
+            TitleKey = "page.settingsAdvanced.title",
+            DescriptionKey = "page.settingsAdvanced.desc",
             Fields = new List<SettingField>
             {
                 new()

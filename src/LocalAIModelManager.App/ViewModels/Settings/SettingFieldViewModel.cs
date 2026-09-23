@@ -118,24 +118,23 @@ public sealed class SettingFieldViewModel : ObservableObject
         set => Value = value ? "true" : "false";
     }
 
+    /// <summary>
+    /// The selected option. For a choice field the option list and the stored value are the
+    /// same strings - which is exactly why the language picker does NOT translate its
+    /// options: its choices are the native names (简体中文, English, 日本語, Français) and
+    /// the field's Write callback maps the chosen name back to a language code.
+    /// </summary>
     public string? SelectionValue
     {
-        get => IsLanguageChoice ? SettingsSections.LanguageDisplay(_value) : _value;
+        get => _value;
         set
         {
             if (!string.IsNullOrEmpty(value))
             {
-                Value = IsLanguageChoice ? SettingsSections.LanguageCodeFor(value) : value;
+                Value = value;
             }
         }
     }
-
-    /// <summary>
-    /// The interface-language picker stores a code (zh-CN) but shows the native display
-    /// name (e.g. 简体中文 or English), because a translated option list would be unusable - you cannot
-    /// recognise the language you are trying to switch to.
-    /// </summary>
-    private bool IsLanguageChoice => string.Equals(_field.Key, "language", StringComparison.OrdinalIgnoreCase);
 
     public string? ValidationError
     {

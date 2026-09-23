@@ -54,9 +54,20 @@ public sealed record SettingsSection
 {
     public required string Key { get; init; }
 
-    public required string Title { get; init; }
+    /// <summary>
+    /// Localization key for the page title. The title is resolved on every read rather than
+    /// captured once: the save handler reports "X was saved" after the language may already
+    /// have switched, and a cached title would print the old language inside a new-language
+    /// sentence.
+    /// </summary>
+    public required string TitleKey { get; init; }
 
-    public required string Description { get; init; }
+    public string Title => Loc.T(TitleKey);
+
+    /// <summary>Localization key for the page description; resolved on every read, like the title.</summary>
+    public required string DescriptionKey { get; init; }
+
+    public string Description => Loc.T(DescriptionKey);
 
     public required IReadOnlyList<SettingField> Fields { get; init; }
 

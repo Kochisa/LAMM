@@ -344,8 +344,22 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 2. **占位符**：JSON 里写 `{0}`、`{1}`，调用方按位置传参，`Loc.T` 内部做 `string.Format`；占位符写坏时返回原文而不是抛异常。
 3. **日志语言在写日志的那一刻决定**。已经写进内存缓冲的条目保留当时的语言——这是有意行为，避免刷新历史日志时文字被改写。
 4. **不切换数据区域性**（`DefaultThreadCurrentCulture` 保持不变），只切 `DefaultThreadCurrentUICulture`。参数是当作不变文本解析和拼接的，小数点变成逗号的区域会让 `0.7` 这类值悄悄出错。
-5. **运行期重建**：语言变化时 `ShellViewModel` 重建导航项、清空页面/视图缓存并重新导航；`PageCatalog`、`SettingsSections`、各页 `Title`/`Description` 都是每次访问时构建，不缓存在 `static readonly` 里。
+5. **运行期重建 + 就地改写**：语言变化时 `ShellViewModel` 重建导航项、清空页面/视图缓存并重新导航；
+   `PageCatalog`、`SettingsSections`、各页 `Title`/`Description` 都是每次访问时构建，不缓存在
+   `static readonly` 里。主窗口的标题/副标题/状态栏按钮**不参与重建**，所以 `{loc:T}` 会把每个元素
+   登记进 `LocalizedTextRegistry`，语言变化时按登记表就地 `SetValue` 回来。
 6. 引擎自身的名称、模型 ID、命令行开关（`--ctx-size`）、HTTP 头与文件通配符（`*.gguf`）**不翻译**。
+
+### 两个踩过的坑（别再踩）
+
+- **`{loc:T}` 不能用绑定实现**。早先版本让 `TExtension.ProvideValue` 返回一个指向索引器源的
+  `Binding`，结果一旦绑定没求值成功，`Content` 就保持 `null`，按钮**静默变成空白**，而且只在
+  某些时机出现、无法复现。现在改为**解析期同步赋值** + 登记表重新赋值：文字从解析那一刻起就在，
+  出问题只会是响亮的解析异常，不会静默变空。
+- **`Button` / `TextBox` / `PasswordBox` 必须有自定义 `ControlTemplate`**。WPF 主题模板里的
+  触发器优先级**高于 Style 的 setter/trigger**，所以只要用系统模板，禁用状态就会被系统接管：
+  Button 被画成浅色系统按钮 + `GrayText` 灰字，在深色主题下就是一坨没有文字的灰块。
+  `Themes/Controls.xaml` 里这三个控件的模板就是为此存在的，不要删。
 
 ---
 
