@@ -176,6 +176,6 @@ Client
 
 ## 📄 License
 
-本项目采用 [MIT License](LICENSE)。
+本项目采用 [GPLv3](LICENSE)。
 
 使用第三方推理引擎或模型时，请同时遵守对应项目及模型的许可证。
