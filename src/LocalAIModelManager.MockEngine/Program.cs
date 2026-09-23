@@ -580,6 +580,15 @@ internal static class Program
         Write("--no-cont-batching", "disable continuous batching");
         Write("--model-draft <file>", "path to a draft model for speculative decoding");
         Write("--draft-max <n>", "maximum number of tokens to draft");
+        Write("--draft-min <n>", "minimum number of tokens to draft");
+        Write("--draft-p-min <p>", "minimum probability to accept a drafted token");
+        Write("-ngld, --n-gpu-layers-draft <n>", "number of draft-model layers to store in VRAM");
+        Write("-cd, --ctx-size-draft <n>", "prompt context size for the draft model");
+        Write("--mtp", "enable multi-token prediction (self-speculative decoding)");
+        // Present in this build but intentionally absent from the manager catalog: proves a
+        // brand-new MTP switch is written out in the MTP group instead of being buried in
+        // the free-form "Other" box.
+        Write("--mtp-n-max <n>", "maximum number of tokens MTP may propose per step");
         Write("--jinja", "use the model's embedded chat template");
         Write("--no-webui", "disable the built-in web UI");
         Write("--embedding", "restrict to embedding mode");

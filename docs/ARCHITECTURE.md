@@ -173,6 +173,19 @@ IBackendAdapter.Inspect(engine)
 其余通过自由文本行输入，例如 `--some-option value` 或单独的 `--another-option`。
 `AdditionalArguments.Tokenize()` 按空白切分、保留顺序、去掉成对引号，并挡掉管理器托管的 flag。
 
+**MTP / 投机解码单独一组**：这一类不塞进「其他参数」，而是渲染成独立分组
+（`params.section.speculative`），因为它在现代构建上是最常被调整的一组，且不同构建的
+flag 名字不一样。分组内容由 `ParameterCatalog.SpeculativeFor(capabilities)` 三层组装：
+
+1. 目录里有、且该构建在 `--help` 里真的声明的项 —— 可编辑；
+2. 该构建声明、目录里没有的项：只要 flag 名里含 `mtp` / `draft` / `speculat` / `eagle` /
+   `medusa` / `lookahead` / `ngram`（`ParameterCatalog.IsSpeculative`），就按名字写出来，
+   所以新版 llama.cpp 新增的 `--mtp-*`、`--eagle-*` 不需要改代码；
+3. 目录里有、该构建没声明的同类项 —— 保留显示但置灰（「该引擎不支持」），
+   让「没有 MTP」读起来是「这个构建没有」，而不是「管理器没做」。
+
+未勾选 = 不下发这条规则对 MTP 组同样成立：导入的模型在这一组里依然是全空。
+
 **注意 llama.cpp 自身的默认值**：不设 `--n-gpu-layers` 时 `-ngl = 0`（纯 CPU）；不设
 `--ctx-size` 时它采用模型自身的训练上下文，而 KV cache 是按上下文长度**一次性预留**的，
 往往远大于权重。以 `Hy-MT2-1.8B-Q4_K_M`（`hunyuan-dense`，32 层，4 个 KV 头，
@@ -288,7 +301,7 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 | 常规 | `general` | 开机启动、启动最小化、关闭到托盘、**界面语言**、主题、启动时探测引擎 |
 | API | `api` | 监听地址/端口、LAN 开关、API Key 启用/生成/复制/显示、并发、超时、状态端点 |
 | 推理引擎 | —（自定义页） | 引擎增删改、`--help` 探测、设为默认、查看该构建支持的参数 |
-| 模型参数 | —（自定义页） | **按引擎探测结果**渲染参数默认值（含「该引擎不支持」的置灰项） |
+| 模型参数 | —（自定义页） | **按引擎探测结果**渲染参数默认值（常用参数 + MTP / 投机解码两组，含「该引擎不支持」的置灰项） |
 | 生命周期 | `lifecycle` | 空闲超时、并发上限、显存驱逐阈值、优雅停止宽限 |
 | 资源 | `resources` | 采样开关/间隔、主 GPU、按进程统计显存、实时读数 |
 | 网络 | `network` | 内部端口区间（只读的回环绑定约束）、出站代理 |

@@ -310,6 +310,7 @@
 
   "params.toolbar.engine": "エンジン：",
   "params.section.common": "よく使うパラメータ",
+  "params.section.speculative": "MTP / 投機的デコード",
   "params.section.other": "その他のパラメータ（詳細設定。llama.cpp のパラメータを 1 行に 1 つ記述）",
   "params.other.hint": "例：--some-option value ／ --another-option（値を取らないスイッチは単独の行に記述）。これらの行はそのまま llama-server のコマンドラインに追加されます。--model / --host / --port はマネージャーが管理するため、記述しても無視されます。",
   "params.footer.core": "基本ルール：チェックなし = 送信しない。本アプリが推論パラメータを代わりに設定することはなく、VRAM 使用量はモデルと llama.cpp 自身の既定値で決まります。",
@@ -317,7 +318,7 @@
   "params.footer.autotune": "自分で計算したくない場合は「モデル」ページの「自動チューニング」を使ってください。GGUF メタデータを読み取り VRAM を加味した推奨値を提示しますが、これは明示的な操作です。",
   "params.footer.restart": "保存後、ロード済みのモデルは「モデル」ページで「再起動」をクリックしないと新しいパラメータが反映されません。",
   "params.noEngine": "推論エンジンがまだ構成されていません。「推論エンジン」ページで llama-server を追加してください。",
-  "params.summary": "エンジン {0}（バージョン {1}）。以下の {2} 項目のみコントロールとして表示されます。その他のパラメータは「その他のパラメータ」に記述してください。",
+  "params.summary": "エンジン {0}（バージョン {1}）。以下の {2} 個のパラメータをコントロールとして表示します（基本パラメータと MTP / 投機的デコード。灰色の行はこのビルドに存在しないことを示します）。それ以外は「その他のパラメータ」に 1 行ずつ記述してください。",
   "params.summary.unsupported": " このビルドでは未対応：{0}。",
   "params.summary.unavailable": "エンジン能力を取得できません：{0}",
   "params.error.emptyValues": "以下のパラメータはチェックされていますが値が入力されていません：{0}",

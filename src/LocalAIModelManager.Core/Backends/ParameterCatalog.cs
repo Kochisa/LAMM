@@ -263,53 +263,64 @@ public static class ParameterCatalog
         },
 
         // ---- Speculative decoding / MTP --------------------------------------
-        new()
-        {
-            Key = "--model-draft", DisplayName = "Draft model path", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.String, Aliases = new[] { "-md" }, ValueHint = "<file>",
-            Description = "Enables speculative decoding with a smaller draft model.",
-        },
-        new()
-        {
-            Key = "--draft-max", DisplayName = "Max draft tokens", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Integer, Aliases = new[] { "--draft" }, ValueHint = "<n>", Advanced = true,
-        },
-        new()
-        {
-            Key = "--draft-min", DisplayName = "Min draft tokens", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Integer, ValueHint = "<n>", Advanced = true,
-        },
-        new()
-        {
-            Key = "--draft-p-min", DisplayName = "Min draft probability", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Float, ValueHint = "<0..1>", Advanced = true,
-        },
-        new()
-        {
-            Key = "--n-gpu-layers-draft", DisplayName = "GPU layers for draft model", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Integer, Aliases = new[] { "-ngld" }, Advanced = true,
-        },
-        new()
-        {
-            Key = "--ctx-size-draft", DisplayName = "Draft model context size", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Integer, Aliases = new[] { "-cd" }, Advanced = true,
-        },
-        new()
-        {
-            Key = "--cache-type-k-draft", DisplayName = "Draft KV cache type (K)", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Enum, AllowedValues = KvCacheTypes, Advanced = true,
-        },
-        new()
-        {
-            Key = "--cache-type-v-draft", DisplayName = "Draft KV cache type (V)", Category = ParameterCategories.Speculative,
-            Kind = ParameterKind.Enum, AllowedValues = KvCacheTypes, Advanced = true,
-        },
-        // Multi-token prediction is only offered when the installed build advertises it.
+        // Multi-token prediction is self-speculation: the model drafts several tokens
+        // itself and verifies them in one pass. The draft-model flags below are the
+        // older, separate-model route to the same speedup. Both families get their own
+        // section in the UI, and any additional flag a build advertises whose name
+        // contains mtp/draft/speculative is listed there too (see IsSpeculative), so a
+        // newer llama.cpp does not need a code change.
         new()
         {
             Key = "--mtp", DisplayName = "Multi-token prediction (MTP)", Category = ParameterCategories.Speculative,
             Kind = ParameterKind.Boolean,
-            Description = "Only shown when the selected llama.cpp build supports MTP.",
+            Description = "Self-speculative decoding: the model proposes several tokens per step and "
+                        + "verifies them in one forward pass. Needs a model that carries MTP weights. "
+                        + "Takes extra VRAM for the MTP layers; costs nothing when the build or the "
+                        + "model does not support it, because the flag is then simply not sent.",
+        },
+        new()
+        {
+            Key = "--model-draft", DisplayName = "Draft model path", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.String, Aliases = new[] { "-md" }, ValueHint = "<file>",
+            Description = "Speculative decoding with a separate, smaller draft model. Needs its own "
+                        + "GGUF file on disk; the manager never picks one for you.",
+        },
+        new()
+        {
+            Key = "--draft-max", DisplayName = "Max draft tokens", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Integer, Aliases = new[] { "--draft" }, ValueHint = "<n>",
+            Description = "Upper bound on how many tokens are drafted per step. Higher drafts more "
+                        + "aggressively; wasted drafts only cost time, not correctness.",
+        },
+        new()
+        {
+            Key = "--draft-min", DisplayName = "Min draft tokens", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Integer, ValueHint = "<n>",
+        },
+        new()
+        {
+            Key = "--draft-p-min", DisplayName = "Min draft probability", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Float, ValueHint = "<0..1>",
+        },
+        new()
+        {
+            Key = "--n-gpu-layers-draft", DisplayName = "GPU layers for draft model", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Integer, Aliases = new[] { "-ngld" }, ValueHint = "<n>",
+        },
+        new()
+        {
+            Key = "--ctx-size-draft", DisplayName = "Draft model context size", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Integer, Aliases = new[] { "-cd" }, ValueHint = "<n>",
+        },
+        new()
+        {
+            Key = "--cache-type-k-draft", DisplayName = "Draft KV cache type (K)", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Enum, AllowedValues = KvCacheTypes,
+        },
+        new()
+        {
+            Key = "--cache-type-v-draft", DisplayName = "Draft KV cache type (V)", Category = ParameterCategories.Speculative,
+            Kind = ParameterKind.Enum, AllowedValues = KvCacheTypes,
         },
 
         // ---- Server ----------------------------------------------------------
@@ -371,4 +382,91 @@ public static class ParameterCatalog
         Known.FirstOrDefault(k =>
             string.Equals(k.Key, flag, StringComparison.OrdinalIgnoreCase) ||
             k.Aliases.Any(a => string.Equals(a, flag, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>True when the descriptor belongs to the MTP / speculative-decoding family.</summary>
+    public static bool IsSpeculative(ParameterDescriptor descriptor) =>
+        string.Equals(descriptor.Category, ParameterCategories.Speculative, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when <paramref name="flag"/> belongs to the MTP / speculative-decoding family.
+    ///
+    /// Catalog membership is checked first, so the short spellings (<c>-md</c>, <c>-ngld</c>,
+    /// <c>-cd</c>) are classified correctly. Everything else is matched by name, which is how
+    /// a build that ships MTP flags this catalog has never seen still gets them written out
+    /// in the dedicated section instead of being buried in the free-form "Other" box.
+    /// </summary>
+    public static bool IsSpeculative(string flag)
+    {
+        if (string.IsNullOrWhiteSpace(flag))
+        {
+            return false;
+        }
+
+        if (Find(flag) is { } known)
+        {
+            return IsSpeculative(known);
+        }
+
+        var name = flag.TrimStart('-');
+        return SpeculativeKeywords.Any(keyword => name.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Name fragments that identify speculative decoding in llama.cpp style flags:
+    /// MTP itself, the draft-model options it grew out of, and the alternative
+    /// speculative schemes some builds carry.
+    /// </summary>
+    private static readonly string[] SpeculativeKeywords =
+    {
+        "mtp", "draft", "speculat", "eagle", "medusa", "lookahead", "ngram",
+    };
+
+    /// <summary>
+    /// Every MTP / speculative-decoding flag that can be offered for
+    /// <paramref name="capabilities"/>, in three tiers:
+    ///
+    /// 1. catalog entries the build actually advertises - editable;
+    /// 2. flags the build advertises that the catalog has never seen, matched by name
+    ///    (any <c>--mtp-*</c>, <c>--draft-*</c>, <c>--speculative-*</c>, ... switch), so a
+    ///    newer llama.cpp writes its own new MTP options out without a code change;
+    /// 3. known family members this build does not advertise, kept visible but
+    ///    unsupported, so "MTP is missing" reads as "this build does not have it" rather
+    ///    than as a missing feature of the manager.
+    /// </summary>
+    public static IReadOnlyList<ParameterDescriptor> SpeculativeFor(EngineCapabilities capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(capabilities);
+
+        var result = new List<ParameterDescriptor>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var descriptor in capabilities.Parameters.Where(d => !d.DetectedOnly))
+        {
+            if (IsSpeculative(descriptor) && seen.Add(descriptor.Key))
+            {
+                result.Add(descriptor);
+            }
+        }
+
+        foreach (var descriptor in capabilities.Parameters.Where(d => d.DetectedOnly))
+        {
+            if (IsSpeculative(descriptor.Key) && seen.Add(descriptor.Key))
+            {
+                result.Add(descriptor);
+            }
+        }
+
+        if (capabilities.IsAvailable)
+        {
+            foreach (var descriptor in Known.Where(IsSpeculative))
+            {
+                if (!capabilities.Supports(descriptor.Key) && seen.Add(descriptor.Key))
+                {
+                    result.Add(descriptor);
+                }
+            }
+        }
+
+        return result;
+    }
 }

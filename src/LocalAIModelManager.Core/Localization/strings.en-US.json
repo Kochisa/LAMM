@@ -310,6 +310,7 @@
 
   "params.toolbar.engine": "Engine:",
   "params.section.common": "Common parameters",
+  "params.section.speculative": "MTP / speculative decoding",
   "params.section.other": "Other parameters (advanced; write llama.cpp parameters directly, one per line)",
   "params.other.hint": "Examples: --some-option value / --another-option (a flag that takes no value goes on its own line). These lines are appended to the llama-server command line as-is; --model / --host / --port are managed by the manager and are ignored if written here.",
   "params.footer.core": "Core rule: unchecked = not sent. This app never fills in inference parameters for you; VRAM usage is determined by the model and llama.cpp's own defaults.",
@@ -317,7 +318,7 @@
   "params.footer.autotune": "If you would rather not compute this yourself, use “Auto-tune” on the “Models” page — it reads the GGUF metadata and suggests values based on VRAM, but only when you explicitly ask for it.",
   "params.footer.restart": "After you save, a loaded model picks up the new parameters only after you click “Restart” on the “Models” page.",
   "params.noEngine": "No inference engine is configured yet. Add a llama-server on the “Inference Engine” page first.",
-  "params.summary": "Engine {0} (version {1}). Only the following {2} items are shown as controls; write any other parameters under “Other parameters”.",
+  "params.summary": "Engine {0} (version {1}). The following {2} parameters are shown as controls (common parameters plus MTP / speculative decoding; a greyed-out row means this build does not have it). Write anything else under “Other parameters”, one flag per line.",
   "params.summary.unsupported": " Not supported by this build: {0}.",
   "params.summary.unavailable": "Engine capabilities unavailable: {0}",
   "params.error.emptyValues": "These parameters are checked but have no value: {0}",

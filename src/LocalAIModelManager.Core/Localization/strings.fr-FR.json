@@ -310,6 +310,7 @@
 
   "params.toolbar.engine": "Moteur :",
   "params.section.common": "Paramètres courants",
+  "params.section.speculative": "MTP / décodage spéculatif",
   "params.section.other": "Autres paramètres (avancé, paramètres llama.cpp bruts, un par ligne)",
   "params.other.hint": "Exemples : --some-option value / --another-option (les options sans valeur s'écrivent seules sur une ligne). Ces lignes sont ajoutées telles quelles à la ligne de commande de llama-server ; --model / --host / --port sont gérés par le gestionnaire et seront ignorés s'ils sont indiqués.",
   "params.footer.core": "Règle essentielle : non coché = non transmis. Cette application ne remplit aucun paramètre d'inférence à votre place ; l'occupation de la VRAM est déterminée par le modèle et les valeurs par défaut de llama.cpp.",
@@ -317,7 +318,7 @@
   "params.footer.autotune": "Si vous préférez ne pas calculer vous-même, utilisez « Réglage automatique » dans la page « Modèles » : il lit les métadonnées GGUF et propose des valeurs d'après la VRAM, mais il s'agit d'une action explicite.",
   "params.footer.restart": "Après enregistrement, un modèle déjà chargé doit être redémarré depuis la page « Modèles » pour utiliser les nouveaux paramètres.",
   "params.noEngine": "Aucun moteur d'inférence n'est configuré. Ajoutez d'abord un llama-server dans la page « Moteur d'inférence ».",
-  "params.summary": "Moteur {0} (version {1}). Seuls les {2} paramètres suivants apparaissent comme contrôles ; les autres sont à saisir dans « Autres paramètres ».",
+  "params.summary": "Moteur {0} (version {1}). Les {2} paramètres suivants sont exposés sous forme de contrôles (paramètres courants et MTP / décodage spéculatif ; une ligne grisée signifie que cette version ne dispose pas de l'option). Indiquez les autres dans « Autres paramètres », un par ligne.",
   "params.summary.unsupported": " Non pris en charge par cette version : {0}.",
   "params.summary.unavailable": "Capacités du moteur indisponibles : {0}",
   "params.error.emptyValues": "Les paramètres suivants sont cochés mais sans valeur : {0}",

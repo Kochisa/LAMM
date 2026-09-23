@@ -82,6 +82,10 @@ Local AI Model Manager - 可执行目录（需要 .NET 10 运行时）
       而不是「显存能塞多少就塞多少」；需要长上下文就把那个值调大。
     * 冷门参数：设置 → 模型参数 页底部 / 模型编辑窗口的「其他参数」，一行一个，
       例如 --some-option value 或单独的 --another-option；
+    * MTP / 投机解码：单独一组（设置 → 模型参数，或模型 → 编辑…），按你这份 llama.cpp
+      的 --help 实际声明的开关渲染：--mtp、--model-draft、--draft-max / --draft-min /
+      --draft-p-min、--n-gpu-layers-draft、--ctx-size-draft 等；新版新增的 --mtp-* /
+      --eagle-* 之类也会按名字自动列出来。置灰的是这份构建没有的开关。同样不勾就不下发。
     * 想让改动生效：到「模型」页对已加载的模型点「重启」；
     * 想核对到底传了什么：模型页详情里的「实际启动命令行」，或运行日志的 launch: 行。
 

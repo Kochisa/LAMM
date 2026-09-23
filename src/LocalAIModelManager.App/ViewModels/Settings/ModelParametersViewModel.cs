@@ -233,22 +233,10 @@ public sealed class ModelParametersViewModel : PageViewModelBase
                 unsupported.Add(key);
             }
 
-            var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
-
             // Unset stays unset: a parameter that was never configured is shown switched
             // off with an empty value, and is NOT passed to the engine.
-            if (defaults.TryGetValue(key, out var configured))
-            {
-                row.IsEnabled = true;
-                row.Value = configured;
-            }
-            else
-            {
-                row.IsEnabled = false;
-                row.Value = descriptor.Kind == ParameterKind.Boolean ? "false" : string.Empty;
-            }
-
-            rows.Add(row);
+            defaults.TryGetValue(key, out var configured);
+            rows.Add(ParameterRowFactory.Create(descriptor, capabilities, configured));
         }
 
         if (rows.Count > 0)
@@ -256,12 +244,28 @@ public sealed class ModelParametersViewModel : PageViewModelBase
             Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.common"), rows));
         }
 
+        // MTP / speculative decoding has its own group: those flags change between builds,
+        // so they are listed from the probe result instead of being typed into "Other".
+        var speculativeDescriptors = ParameterCatalog.SpeculativeFor(capabilities);
+        if (speculativeDescriptors.Count > 0)
+        {
+            var speculativeRows = speculativeDescriptors
+                .Select(descriptor =>
+                {
+                    defaults.TryGetValue(descriptor.Key, out var configured);
+                    return ParameterRowFactory.Create(descriptor, capabilities, configured);
+                })
+                .ToList();
+
+            Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.speculative"), speculativeRows));
+        }
+
         AdditionalArgumentsText = string.Join(
             Environment.NewLine,
             Services.Current.ModelParameters.AdditionalArguments);
 
         Summary = capabilities.IsAvailable
-            ? Loc.T("params.summary", engineDefinition.Id, capabilities.Version ?? Loc.T("common.unknown"), rows.Count)
+            ? Loc.T("params.summary", engineDefinition.Id, capabilities.Version ?? Loc.T("common.unknown"), Groups.Sum(g => g.Rows.Count))
               + (unsupported.Count > 0
                   ? Loc.T("params.summary.unsupported", string.Join(Loc.T("common.listSeparator"), unsupported))
                   : string.Empty)

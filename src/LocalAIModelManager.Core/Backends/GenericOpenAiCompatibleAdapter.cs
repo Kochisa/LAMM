@@ -118,15 +118,12 @@ public sealed class GenericOpenAiCompatibleAdapter : OpenAiCompatibleBackendAdap
                 continue;
             }
 
-            if (string.IsNullOrEmpty(value))
+            if (!ParameterRenderer.TryRender(key, value, capabilities, out var rendered))
             {
-                arguments.Add(key);
+                continue;
             }
-            else
-            {
-                arguments.Add(key);
-                arguments.Add(value);
-            }
+
+            arguments.AddRange(rendered);
         }
 
         foreach (var (key, value) in request.Engine.ExtraArguments)

@@ -310,6 +310,7 @@
 
   "params.toolbar.engine": "引擎：",
   "params.section.common": "常用参数",
+  "params.section.speculative": "MTP / 投机解码",
   "params.section.other": "其他参数（高级，直接写 llama.cpp 参数，一行一个）",
   "params.other.hint": "示例：--some-option value ／ --another-option（不需要值的开关单独一行）。这些行会按原样追加到 llama-server 命令行；--model / --host / --port 由管理器托管，写了也会被忽略。",
   "params.footer.core": "核心规则：未勾选 = 不下发。本应用不会替你填任何推理参数，VRAM 占用由模型和 llama.cpp 自身默认值决定。",
@@ -317,7 +318,7 @@
   "params.footer.autotune": "不想自己算就用「模型」页的「自动调参」——它会读 GGUF 元数据并结合显存给出建议值，但那是一次显式操作。",
   "params.footer.restart": "改完保存后，已加载的模型需要到「模型」页点「重启」才会用新参数。",
   "params.noEngine": "尚未配置任何推理引擎。请先在“推理引擎”页面添加一个 llama-server。",
-  "params.summary": "引擎 {0}（版本 {1}）。仅以下 {2} 项会作为控件显示；其他参数请写在“其他参数”里。",
+  "params.summary": "引擎 {0}（版本 {1}）。以下 {2} 项会作为控件显示（常用参数 + MTP / 投机解码；灰掉的表示该构建不支持）；其余参数请写在“其他参数”里，一行一个。",
   "params.summary.unsupported": " 该构建不支持：{0}。",
   "params.summary.unavailable": "引擎能力不可用：{0}",
   "params.error.emptyValues": "以下参数已勾选但没有填写值：{0}",

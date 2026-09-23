@@ -82,29 +82,31 @@ public partial class ModelEditorWindow : System.Windows.Window
                 continue;
             }
 
-            var supported = capabilities.Supports(key);
-            var row = new ParameterRowViewModel(descriptor, supported, descriptor.DefaultValue);
-
             // A model only carries what was explicitly set on it. Nothing is inherited
             // from global defaults here and nothing is pre-filled: an imported model must
             // start with zero custom inference parameters.
-            if (_model.Parameters.TryGetValue(key, out var value))
-            {
-                row.IsEnabled = true;
-                row.Value = value;
-            }
-            else
-            {
-                row.IsEnabled = false;
-                row.Value = descriptor.Kind == ParameterKind.Boolean ? "false" : string.Empty;
-            }
-
-            rows.Add(row);
+            _model.Parameters.TryGetValue(key, out var value);
+            rows.Add(ParameterRowFactory.Create(descriptor, capabilities, value));
         }
 
         if (rows.Count > 0)
         {
             Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.common"), rows));
+        }
+
+        // MTP / speculative decoding is written out as its own group: these flags differ
+        // between builds, and they are the ones people reach for on a modern llama.cpp.
+        var speculativeRows = ParameterCatalog.SpeculativeFor(capabilities)
+            .Select(descriptor =>
+            {
+                _model.Parameters.TryGetValue(descriptor.Key, out var value);
+                return ParameterRowFactory.Create(descriptor, capabilities, value);
+            })
+            .ToList();
+
+        if (speculativeRows.Count > 0)
+        {
+            Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.speculative"), speculativeRows));
         }
 
         AdditionalArgumentsText = string.Join(Environment.NewLine, _model.AdditionalArguments);

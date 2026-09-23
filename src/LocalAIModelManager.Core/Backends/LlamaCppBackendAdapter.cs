@@ -176,7 +176,7 @@ public sealed class LlamaCppBackendAdapter : OpenAiCompatibleBackendAdapter
                 continue;
             }
 
-            if (!TryRenderParameter(key, value, capabilities, out var rendered))
+            if (!ParameterRenderer.TryRender(key, value, capabilities, out var rendered))
             {
                 continue;
             }
@@ -249,42 +249,4 @@ public sealed class LlamaCppBackendAdapter : OpenAiCompatibleBackendAdapter
 
     private static bool IsSupported(EngineCapabilities capabilities, string flag) =>
         !capabilities.IsAvailable || capabilities.Supports(flag) || capabilities.DetectedFlags.Contains(flag);
-
-    private static bool TryRenderParameter(
-        string key,
-        string value,
-        EngineCapabilities capabilities,
-        out List<string> rendered)
-    {
-        rendered = new List<string>();
-        var descriptor = capabilities.Find(key) ?? ParameterCatalog.Find(key);
-        var trimmed = (value ?? string.Empty).Trim();
-
-        if (descriptor?.Kind == ParameterKind.Boolean)
-        {
-            if (string.IsNullOrEmpty(trimmed) || IsTruthy(trimmed))
-            {
-                rendered.Add(key);
-                return true;
-            }
-
-            // Explicitly disabled: emit nothing at all.
-            return false;
-        }
-
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return false;
-        }
-
-        rendered.Add(key);
-        rendered.Add(trimmed);
-        return true;
-    }
-
-    private static bool IsTruthy(string value) =>
-        value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("1", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
-        value.Equals("on", StringComparison.OrdinalIgnoreCase);
 }
