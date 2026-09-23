@@ -11,13 +11,26 @@ public static class StartupRegistration
 {
     public const string DefaultRunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    public const string DefaultValueName = "LocalAIModelManager";
+    public const string DefaultValueName = "LAMM";
+
+    /// <summary>Run-key value name this product used before it was renamed to LAMM.</summary>
+    public const string LegacyValueName = "LocalAIModelManager";
 
     /// <summary>Reads the registered command line, or null when startup is not configured.</summary>
     public static string? GetCommand(string valueName = DefaultValueName, string keyPath = DefaultRunKeyPath)
     {
         using var key = Registry.CurrentUser.OpenSubKey(keyPath, writable: false);
-        return key?.GetValue(valueName) as string;
+        var command = key?.GetValue(valueName) as string;
+        if (!string.IsNullOrWhiteSpace(command))
+        {
+            return command;
+        }
+
+        // An entry written before the rename still means "start with Windows", so report
+        // it rather than silently showing the feature as off.
+        return string.Equals(valueName, DefaultValueName, StringComparison.Ordinal)
+            ? key?.GetValue(LegacyValueName) as string
+            : null;
     }
 
     public static bool IsEnabled(string valueName = DefaultValueName, string keyPath = DefaultRunKeyPath) =>
@@ -74,6 +87,10 @@ public static class StartupRegistration
         using var key = Registry.CurrentUser.CreateSubKey(keyPath, writable: true)
             ?? throw new InvalidOperationException($"Could not open HKCU\\{keyPath} for writing.");
 
+        // Never leave two entries behind: the pre-rename one launched a binary that no
+        // longer exists and would fight with this one.
+        key.DeleteValue(LegacyValueName, throwOnMissingValue: false);
+
         if (!enabled)
         {
             key.DeleteValue(valueName, throwOnMissingValue: false);
@@ -85,6 +102,37 @@ public static class StartupRegistration
             : $"{Quote(executablePath)} {arguments}";
 
         key.SetValue(valueName, command, RegistryValueKind.String);
+    }
+
+    /// <summary>
+    /// Rewrites a pre-rename startup entry so it launches <paramref name="executablePath"/>
+    /// instead of the old binary, which no longer exists after the rename. No-op when
+    /// startup was never registered; returns true when an entry was migrated.
+    /// </summary>
+    public static bool TryMigrateLegacyEntry(string executablePath, string arguments)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using (var key = Registry.CurrentUser.OpenSubKey(DefaultRunKeyPath, writable: false))
+            {
+                if (string.IsNullOrWhiteSpace(key?.GetValue(LegacyValueName) as string))
+                {
+                    return false;
+                }
+            }
+
+            SetEnabled(true, executablePath, arguments);
+            return true;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

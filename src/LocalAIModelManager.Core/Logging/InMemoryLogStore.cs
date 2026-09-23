@@ -225,7 +225,7 @@ public sealed class InMemoryLogStore : IAppLogger
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine($"# Local AI Model Manager log snapshot");
+        builder.AppendLine($"# LAMM log snapshot");
         builder.AppendLine($"# exported: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}");
         builder.AppendLine($"# entries: {entries.Count}");
         builder.AppendLine();

@@ -1,5 +1,5 @@
 {
-  "app.title": "Local AI Model Manager",
+  "app.title": "LAMM",
   "app.subtitle": "ローカルモデルのライフサイクル管理と OpenAI 互換ゲートウェイ",
 
   "nav.group.models": "モデル",
@@ -470,7 +470,7 @@
   "validation.engineNoGpuWithOffload": "現在の既定パラメータは GPU オフロードを要求していますが、その指定は無視され、モデルは CPU でのみ動作します。CUDA/Vulkan 版であること、および CUDA 版のランタイム DLL が llama-server.exe と同じディレクトリに展開されていることを確認してください。",
   "validation.engineNoGpuCpuOnly": "このエンジンは CPU でのみ使用できます。",
 
-  "log.runtime.starting": "Local AI Model Manager を起動しています（構成ディレクトリ：{0}）",
+  "log.runtime.starting": "LAMM を起動しています（構成ディレクトリ：{0}）",
   "log.runtime.modelsRegistered": "モデルを {0} 個登録しました。ロード方針：事前ロードなし（すべてのモデルは初期状態でスタンバイ）",
   "log.runtime.jobUnavailable": "Windows Job Object を利用できません（{0}）。孤児プロセスの防止は明示的な停止にフォールバックします",
   "log.runtime.ready": "マネージャーは準備完了です。モデルはリクエストを受け取ったときにオンデマンドでロードされます",
@@ -561,10 +561,10 @@
   "autotune.fallback.context": "既定値を使用します：--ctx-size {0}、--n-gpu-layers {1}。",
   "autotune.explain.weightsFit": "重み {0} GiB はすべて VRAM に収まるため、--n-gpu-layers {1}（全レイヤー）とします。",
 
-  "dialog.exit.title": "Local AI Model Manager を終了",
+  "dialog.exit.title": "LAMM を終了",
   "dialog.exit.withLoaded": "終了すると {0} 個のロード済みモデルをアンロードし、すべてのエンジンプロセスを終了します。終了しますか？",
   "dialog.exit.noLoaded": "終了すると API ゲートウェイを停止し、すべてのエンジンプロセスを終了します。終了しますか？",
-  "dialog.alreadyRunning": "Local AI Model Manager はすでに実行中です。システムトレイのアイコンを確認してください。",
+  "dialog.alreadyRunning": "LAMM はすでに実行中です。システムトレイのアイコンを確認してください。",
   "dialog.startupFailed": "起動に失敗しました：{0}\n\n詳細はメモリログに出力されています（「実行ログ」ページで確認できます）。",
   "dialog.unhandled": "未処理のエラーが発生しました：{0}",
 

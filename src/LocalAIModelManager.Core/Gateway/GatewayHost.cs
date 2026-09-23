@@ -390,7 +390,7 @@ public sealed class GatewayHost : IAsyncDisposable
                 await WriteErrorAsync(
                     context,
                     status,
-                    $"The model '{modelId}' is not registered with Local AI Model Manager.",
+                    $"The model '{modelId}' is not registered with LAMM.",
                     "invalid_request_error",
                     "model_not_found").ConfigureAwait(false);
                 return;

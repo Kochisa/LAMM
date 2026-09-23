@@ -1,5 +1,5 @@
 {
-  "app.title": "Local AI Model Manager",
+  "app.title": "LAMM",
   "app.subtitle": "Local model lifecycle management with an OpenAI-compatible gateway",
 
   "nav.group.models": "Models",
@@ -470,7 +470,7 @@
   "validation.engineNoGpuWithOffload": "The current default parameters request GPU offload, but that request will be ignored and the model can run on the CPU only. Make sure this is the CUDA/Vulkan build, and that for the CUDA build the runtime DLLs are unpacked next to llama-server.exe.",
   "validation.engineNoGpuCpuOnly": "This engine can use the CPU only.",
 
-  "log.runtime.starting": "Local AI Model Manager is starting (config directory: {0})",
+  "log.runtime.starting": "LAMM is starting (config directory: {0})",
   "log.runtime.modelsRegistered": "{0} models registered; load policy: no preloading (all models start in standby)",
   "log.runtime.jobUnavailable": "Windows Job Object unavailable ({0}); orphan protection degrades to explicit stops",
   "log.runtime.ready": "Manager ready; models load on demand when requests arrive",
@@ -561,10 +561,10 @@
   "autotune.fallback.context": "Defaults applied: --ctx-size {0}, --n-gpu-layers {1}.",
   "autotune.explain.weightsFit": "The weights {0} GiB fit entirely in VRAM, so --n-gpu-layers {1} (all layers).",
 
-  "dialog.exit.title": "Exit Local AI Model Manager",
+  "dialog.exit.title": "Exit LAMM",
   "dialog.exit.withLoaded": "Exiting will unload {0} loaded models and end all engine processes. Exit?",
   "dialog.exit.noLoaded": "Exiting will stop the API gateway and end all engine processes. Exit?",
-  "dialog.alreadyRunning": "Local AI Model Manager is already running. Check the system tray icon.",
+  "dialog.alreadyRunning": "LAMM is already running. Check the system tray icon.",
   "dialog.startupFailed": "Startup failed: {0}\n\nDetails were written to the in-memory log (see the “Runtime Logs” page).",
   "dialog.unhandled": "An unhandled error occurred: {0}",
 

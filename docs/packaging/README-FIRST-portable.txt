@@ -1,19 +1,19 @@
-Local AI Model Manager - 免安装版本（自带私有 .NET 运行时）
+LAMM - 免安装版本（自带私有 .NET 运行时）
 ============================================================
 
-启动方式：双击 **Start.cmd**（不要直接双击 LocalAIModelManager.exe）。
+启动方式：双击 **Start.cmd**（不要直接双击 LAMM.exe）。
 
   Start.cmd 会把 DOTNET_ROOT 指向本目录下的 dotnet\ 私有运行时，然后启动主程序。
   因此目标机器**无需安装任何 .NET 组件**。
 
-  直接双击 LocalAIModelManager.exe 也可以运行，但那样会使用机器上已安装的 .NET 10
+  直接双击 LAMM.exe 也可以运行，但那样会使用机器上已安装的 .NET 10
   运行时（Desktop Runtime + ASP.NET Core Runtime）；若未安装则会提示缺少运行时。
   这种情况下请改用 Start.cmd。
 
 
 首次启动会发生什么
 ------------------
-  * 在 %APPDATA%\LocalAIModelManager 生成 settings.json 与 models.json；
+  * 在 %APPDATA%\LAMM 生成 settings.json 与 models.json；
   * 自动生成一个 API 密钥（可在「设置 → API」查看、复制或重新生成）；
   * 只启动管理器与 API 网关，**不会加载任何模型**，所有模型保持待机；
   * 收到 POST /v1/chat/completions 时才会启动引擎、加载模型、转发并流式返回；
@@ -31,8 +31,8 @@ Local AI Model Manager - 免安装版本（自带私有 .NET 运行时）
 目录说明
 --------
   Start.cmd                              启动入口（推荐）
-  LocalAIModelManager.exe                主程序（UI + OpenAI 兼容 API 网关）
-  LocalAIModelManager.ControlHelper.exe  必需：一次性助手进程，向引擎控制台投递
+  LAMM.exe                主程序（UI + OpenAI 兼容 API 网关）
+  LAMM.ControlHelper.exe  必需：一次性助手进程，向引擎控制台投递
                                          CTRL_BREAK 以实现优雅停止
   dotnet\                                私有 .NET 10 运行时（10.0.4），约 200 MB
     dotnet.exe

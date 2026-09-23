@@ -5,7 +5,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>LocalAIModelManager.App</RootNamespace>
-    <AssemblyName>LocalAIModelManager</AssemblyName>
+    <AssemblyName>LAMM</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <!-- WFO0003: the DPI settings live in app.manifest on purpose (WPF app). -->

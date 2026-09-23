@@ -1,4 +1,4 @@
-Local AI Model Manager - 可执行目录（需要 .NET 10 运行时）
+LAMM - 可执行目录（需要 .NET 10 运行时）
 ============================================================
 
 运行前请在目标机器安装以下两个运行时（x64）：
@@ -8,13 +8,13 @@ Local AI Model Manager - 可执行目录（需要 .NET 10 运行时）
 
 下载地址：https://dotnet.microsoft.com/download/dotnet/10.0
 
-安装完成后，双击 LocalAIModelManager.exe 即可运行。
+安装完成后，双击 LAMM.exe 即可运行。
 如果不想在目标机器安装运行时，请改用 *-portable 版本（自带运行时，体积更大）。
 
 
 首次启动会发生什么
 ------------------
-  * 在 %APPDATA%\LocalAIModelManager 生成 settings.json 与 models.json；
+  * 在 %APPDATA%\LAMM 生成 settings.json 与 models.json；
   * 自动生成一个 API 密钥（可在「设置 → API」查看、复制或重新生成）；
   * 只启动管理器与 API 网关，**不会加载任何模型**，所有模型保持待机；
   * 收到 POST /v1/chat/completions 时才会启动引擎、加载模型、转发并流式返回；
@@ -31,8 +31,8 @@ Local AI Model Manager - 可执行目录（需要 .NET 10 运行时）
 
 目录说明
 --------
-  LocalAIModelManager.exe                主程序（UI + OpenAI 兼容 API 网关）
-  LocalAIModelManager.ControlHelper.exe  必需：一次性助手进程，向引擎控制台投递
+  LAMM.exe                主程序（UI + OpenAI 兼容 API 网关）
+  LAMM.ControlHelper.exe  必需：一次性助手进程，向引擎控制台投递
                                          CTRL_BREAK 以实现优雅停止
   engines\mock\llama-server.exe          可选：离线演示引擎。即使没有 llama.cpp，
                                          也能完整体验「按需加载 → 流式返回 → 空闲卸载」

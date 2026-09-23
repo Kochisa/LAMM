@@ -13,7 +13,7 @@ namespace LocalAIModelManager.ControlHelper;
 /// after delivering it), but fatal for the long-lived manager when it runs as a
 /// windowless GUI process.
 ///
-/// Usage: LocalAIModelManager.ControlHelper --send-ctrl-break &lt;pid&gt;
+/// Usage: LAMM.ControlHelper --send-ctrl-break &lt;pid&gt;
 /// Exit codes: 0 = signal delivered, 1 = bad usage, 2 = attach failed, 3 = send failed.
 /// </summary>
 internal static class Program
@@ -27,7 +27,7 @@ internal static class Program
             !int.TryParse(args[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) ||
             pid <= 0)
         {
-            Console.Error.WriteLine("usage: LocalAIModelManager.ControlHelper --send-ctrl-break <pid>");
+            Console.Error.WriteLine("usage: LAMM.ControlHelper --send-ctrl-break <pid>");
             return 1;
         }
 

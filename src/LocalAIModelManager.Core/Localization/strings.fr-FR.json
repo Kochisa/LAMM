@@ -1,5 +1,5 @@
 {
-  "app.title": "Local AI Model Manager",
+  "app.title": "LAMM",
   "app.subtitle": "Gestion du cycle de vie des modèles locaux et passerelle compatible OpenAI",
 
   "nav.group.models": "Modèles",
@@ -470,7 +470,7 @@
   "validation.engineNoGpuWithOffload": "Les paramètres par défaut actuels demandent un déchargement GPU, mais cette demande sera ignorée et le modèle ne pourra fonctionner que sur le CPU. Vérifiez qu'il s'agit bien d'une version CUDA/Vulkan et que les DLL d'exécution de la version CUDA ont été extraites dans le même dossier que llama-server.exe.",
   "validation.engineNoGpuCpuOnly": "Ce moteur ne peut utiliser que le CPU.",
 
-  "log.runtime.starting": "Démarrage de Local AI Model Manager (dossier de configuration : {0})",
+  "log.runtime.starting": "Démarrage de LAMM (dossier de configuration : {0})",
   "log.runtime.modelsRegistered": "{0} modèles enregistrés ; stratégie de chargement : aucun préchargement (tous les modèles sont en veille au départ)",
   "log.runtime.jobUnavailable": "Windows Job Object indisponible ({0}) ; la protection contre les processus orphelins se limite à un arrêt explicite",
   "log.runtime.ready": "Gestionnaire prêt ; les modèles seront chargés à la demande, à la réception des requêtes",
@@ -561,10 +561,10 @@
   "autotune.fallback.context": "Valeurs par défaut retenues : --ctx-size {0}, --n-gpu-layers {1}.",
   "autotune.explain.weightsFit": "Les poids ({0} GiB) tiennent entièrement en VRAM, donc --n-gpu-layers {1} (toutes les couches).",
 
-  "dialog.exit.title": "Quitter Local AI Model Manager",
+  "dialog.exit.title": "Quitter LAMM",
   "dialog.exit.withLoaded": "Quitter déchargera {0} modèles chargés et mettra fin à tous les processus du moteur. Confirmer la fermeture ?",
   "dialog.exit.noLoaded": "Quitter arrêtera la passerelle API et mettra fin à tous les processus du moteur. Confirmer la fermeture ?",
-  "dialog.alreadyRunning": "Local AI Model Manager est déjà en cours d'exécution. Consultez l'icône de la zone de notification.",
+  "dialog.alreadyRunning": "LAMM est déjà en cours d'exécution. Consultez l'icône de la zone de notification.",
   "dialog.startupFailed": "Échec du démarrage : {0}\n\nLes détails ont été écrits dans les journaux en mémoire (consultables dans la page « Journaux d'exécution »).",
   "dialog.unhandled": "Une erreur non gérée s'est produite : {0}",
 

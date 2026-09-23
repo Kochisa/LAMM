@@ -1,4 +1,4 @@
-# Shared environment for Local AI Model Manager build/run scripts.
+# Shared environment for LAMM build/run scripts.
 #
 # Notes for restricted/sandboxed hosts:
 #   * The .NET CLI writes first-run sentinels to %USERPROFILE%\.dotnet; DOTNET_CLI_HOME
@@ -32,7 +32,7 @@ function Get-LammConfiguration {
 
 function Get-LammAppExecutable {
     param([string]$Configuration = 'Debug')
-    return Join-Path $script:RepoRoot "src\LocalAIModelManager.App\bin\$Configuration\net10.0-windows\LocalAIModelManager.exe"
+    return Join-Path $script:RepoRoot "src\LocalAIModelManager.App\bin\$Configuration\net10.0-windows\LAMM.exe"
 }
 
 function Get-LammMockEngineExecutable {

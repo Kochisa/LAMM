@@ -138,7 +138,7 @@ public static class SettingsSections
             },
             OnSaved = (services, settings) =>
             {
-                var executable = Environment.ProcessPath ?? "LocalAIModelManager.exe";
+                var executable = Environment.ProcessPath ?? "LAMM.exe";
                 var arguments = StartupRegistration.BuildStartupArguments(settings.General.StartMinimized);
 
                 if (settings.General.StartWithWindows)

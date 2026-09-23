@@ -18,7 +18,7 @@ namespace LocalAIModelManager.App;
 /// </summary>
 public partial class App : Application
 {
-    private const string SingleInstanceMutexName = @"Local\LocalAIModelManager.SingleInstance";
+    private const string SingleInstanceMutexName = @"Local\LAMM.SingleInstance";
 
     private Mutex? _singleInstanceMutex;
     private AppRuntime? _runtime;
@@ -87,6 +87,13 @@ public partial class App : Application
 
             // Manager only: gateway + monitors. No model is loaded here.
             await _runtime.StartAsync().ConfigureAwait(true);
+
+            // A startup entry written before the rename points at a binary that no longer
+            // exists; rewrite it so "start with Windows" keeps working across the rename.
+            Core.Runtime.StartupRegistration.TryMigrateLegacyEntry(
+                Environment.ProcessPath ?? string.Empty,
+                Core.Runtime.StartupRegistration.BuildStartupArguments(
+                    _runtime.Settings.Current.General.StartMinimized));
 
             _services = new AppServices(_runtime, new DialogService());
             _shell = new ShellViewModel(_services);
@@ -191,7 +198,7 @@ public partial class App : Application
         {
             if (showCommandIndex + 1 >= args.Length)
             {
-                Console.Error.WriteLine("usage: LocalAIModelManager.exe --show-command <modelId>");
+                Console.Error.WriteLine("usage: LAMM.exe --show-command <modelId>");
                 return 2;
             }
 
@@ -206,7 +213,7 @@ public partial class App : Application
 
         if (autotuneIndex + 1 >= args.Length)
         {
-            Console.Error.WriteLine("usage: LocalAIModelManager.exe --autotune <model.gguf> [--out <report.txt>]");
+            Console.Error.WriteLine("usage: LAMM.exe --autotune <model.gguf> [--out <report.txt>]");
             return 2;
         }
 

@@ -1,10 +1,10 @@
-# Packages Local AI Model Manager into runnable software.
+# Packages LAMM into runnable software.
 #
 # Produces, under artifacts\:
-#   LocalAIModelManager-<version>-win-x64\             runnable folder (needs .NET 10 runtimes)
-#   LocalAIModelManager-<version>-win-x64.zip          same, for distribution
-#   LocalAIModelManager-<version>-win-x64-portable\    bundled runtimes, no install needed
-#   LocalAIModelManager-<version>-win-x64-portable.zip
+#   LAMM-<version>-win-x64\             runnable folder (needs .NET 10 runtimes)
+#   LAMM-<version>-win-x64.zip          same, for distribution
+#   LAMM-<version>-win-x64-portable\    bundled runtimes, no install needed
+#   LAMM-<version>-win-x64-portable.zip
 #
 # Usage:
 #   .\scripts\publish.ps1                 # framework-dependent package + zip
@@ -26,7 +26,7 @@ param(
 
 $root = Get-LammRepoRoot
 $artifacts = Join-Path $root 'artifacts'
-$baseName = "LocalAIModelManager-$Version-win-x64"
+$baseName = "LAMM-$Version-win-x64"
 $frameworkDir = Join-Path $artifacts $baseName
 $portableDir = Join-Path $artifacts "$baseName-portable"
 
@@ -122,10 +122,10 @@ Invoke-Dotnet @(
     '-o', $frameworkDir
 )
 
-$appExe = Join-Path $frameworkDir 'LocalAIModelManager.exe'
+$appExe = Join-Path $frameworkDir 'LAMM.exe'
 if (-not (Test-Path $appExe)) { throw "publish did not produce $appExe" }
 
-foreach ($required in 'LocalAIModelManager.dll', 'LocalAIModelManager.ControlHelper.exe') {
+foreach ($required in 'LAMM.dll', 'LAMM.ControlHelper.exe') {
     if (-not (Test-Path (Join-Path $frameworkDir $required))) {
         throw "publish output is missing $required"
     }
@@ -195,11 +195,11 @@ if ($Portable) {
     # Launcher: point the apphost at the private runtime and detach.
     $launcher = @(
         '@echo off',
-        'rem Launch Local AI Model Manager using the private .NET runtime in .\dotnet',
+        'rem Launch LAMM using the private .NET runtime in .\dotnet',
         'setlocal',
         'set "DOTNET_ROOT=%~dp0dotnet"',
         'set "DOTNET_MULTILEVEL_LOOKUP=0"',
-        'start "" "%~dp0LocalAIModelManager.exe" %*',
+        'start "" "%~dp0LAMM.exe" %*',
         'endlocal'
     )
     $launcher | Set-Content (Join-Path $portableDir 'Start.cmd') -Encoding ASCII

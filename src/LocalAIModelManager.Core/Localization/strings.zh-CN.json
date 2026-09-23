@@ -1,5 +1,5 @@
 {
-  "app.title": "Local AI Model Manager",
+  "app.title": "LAMM",
   "app.subtitle": "本地模型生命周期管理与 OpenAI 兼容网关",
 
   "nav.group.models": "模型",
@@ -470,7 +470,7 @@
   "validation.engineNoGpuWithOffload": "当前默认参数要求 GPU 卸载，但该请求会被忽略，模型只能在 CPU 上运行。请确认它是 CUDA/Vulkan 版本，并且 CUDA 版本的运行时 DLL 已解压到 llama-server.exe 同目录。",
   "validation.engineNoGpuCpuOnly": "该引擎只能使用 CPU。",
 
-  "log.runtime.starting": "Local AI Model Manager 启动中（配置目录：{0}）",
+  "log.runtime.starting": "LAMM 启动中（配置目录：{0}）",
   "log.runtime.modelsRegistered": "已注册模型 {0} 个；加载策略：不预加载（所有模型初始为待机）",
   "log.runtime.jobUnavailable": "Windows Job Object 不可用（{0}）；孤儿进程防护退化为显式停止",
   "log.runtime.ready": "管理器就绪；模型将在收到请求时按需加载",
@@ -561,10 +561,10 @@
   "autotune.fallback.context": "采用默认值：--ctx-size {0}、--n-gpu-layers {1}。",
   "autotune.explain.weightsFit": "权重 {0} GiB 可全部放进显存，因此 --n-gpu-layers {1}（全部层）。",
 
-  "dialog.exit.title": "退出 Local AI Model Manager",
+  "dialog.exit.title": "退出 LAMM",
   "dialog.exit.withLoaded": "退出将卸载 {0} 个已加载模型并结束所有引擎进程。确定退出吗？",
   "dialog.exit.noLoaded": "退出将停止 API 网关并结束所有引擎进程。确定退出吗？",
-  "dialog.alreadyRunning": "Local AI Model Manager 已经在运行。请查看系统托盘图标。",
+  "dialog.alreadyRunning": "LAMM 已经在运行。请查看系统托盘图标。",
   "dialog.startupFailed": "启动失败：{0}\n\n详细信息已写入内存日志（可在“运行日志”页面查看）。",
   "dialog.unhandled": "发生未处理的错误：{0}",
 

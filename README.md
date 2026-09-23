@@ -1,6 +1,6 @@
-# Local AI Model Manager
+# LAMM
 
-Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API 网关**。
+**L**ocal **A**I **M**odel **M**anager —— Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API 网关**。
 
 - **不使用 Ollama。**
 - 首个推理引擎：**llama.cpp / llama-server**，可独立替换与升级（用户可选择任意 llama.cpp 版本）。
@@ -18,15 +18,15 @@ Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API �
 
 | 产物 | 体积 | 目标机器要求 | 启动方式 |
 |---|---|---|---|
-| `LocalAIModelManager-0.1.0-win-x64\`（+ `.zip`） | 约 1.2 MB | 需安装 **.NET 10 Desktop Runtime + ASP.NET Core Runtime** | 双击 `LocalAIModelManager.exe` |
-| `LocalAIModelManager-0.1.0-win-x64-portable\`（+ `.zip`） | 约 201 MB（zip 83 MB） | **无需安装任何 .NET 组件** | 双击 **`Start.cmd`** |
+| `LAMM-0.1.9-win-x64\`（+ `.zip`） | 约 1.2 MB | 需安装 **.NET 10 Desktop Runtime + ASP.NET Core Runtime** | 双击 `LAMM.exe` |
+| `LAMM-0.1.9-win-x64-portable\`（+ `.zip`） | 约 201 MB（zip 83 MB） | **无需安装任何 .NET 组件** | 双击 **`Start.cmd`** |
 
 ```
 # 非 portable 版：目标机器需要 .NET 10 运行时
-LocalAIModelManager-0.1.0-win-x64\LocalAIModelManager.exe
+LAMM-0.1.9-win-x64\LAMM.exe
 
 # 免安装版：Start.cmd 会把 DOTNET_ROOT 指向随包的私有 .NET 运行时
-LocalAIModelManager-0.1.0-win-x64-portable\Start.cmd
+LAMM-0.1.9-win-x64-portable\Start.cmd
 ```
 
 两个目录里都带了一个**离线演示引擎**（`engines\mock\llama-server.exe`），
@@ -57,13 +57,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
 ```
 
 首次启动会自动生成 API Key 并写入
-`%APPDATA%\LocalAIModelManager\settings.json`。可用环境变量 `LAMM_CONFIG_DIR` 改配置目录。
+`%APPDATA%\LAMM\settings.json`。可用环境变量 `LAMM_CONFIG_DIR` 改配置目录。
+
+> **从旧名字升级**：软件原名 Local AI Model Manager，配置目录是
+> `%APPDATA%\LocalAIModelManager`。改名为 LAMM 后首次启动会把这些文件
+> **复制**到 `%APPDATA%\LAMM`（不移动，旧目录原样保留），所以模型登记、
+> API 密钥、设置都不会丢。开机启动项的注册表值名也从 `LocalAIModelManager`
+> 改成 `LAMM`，启动时会自动改写指向新的 `LAMM.exe`。
 
 ## 3. 接上真实的 llama.cpp
 
 1. 下载/解压任意 llama.cpp 发行版（Windows CUDA/Vulkan/CPU 均可）。
 2. 打开 **设置 → 推理引擎 → 添加引擎…**，指向该目录下的 `llama-server.exe`
-   （或把它放到 `%APPDATA%\LocalAIModelManager\engines\<版本>\llama-server.exe`，
+   （或把它放到 `%APPDATA%\LAMM\engines\<版本>\llama-server.exe`，
    启动时会自动发现）。
 3. 点击 **重新探测**：管理器会运行 `llama-server --help`，把该构建**真正支持**的参数
    渲染到「模型参数」页。
@@ -168,12 +174,12 @@ llama.cpp 自身的默认值**决定，而不是由本应用随意决定。
 
 ```powershell
 # 只看建议值，不改任何配置
-LocalAIModelManager.exe --autotune "D:\AI\models\Hy-MT2-1.8B-Q4_K_M.gguf" --out report.txt
-LocalAIModelManager.exe --autotune model.gguf --context 32768   # 要更长上下文
-LocalAIModelManager.exe --autotune model.gguf --max-vram 50     # 更保守的安全上限
+LAMM.exe --autotune "D:\AI\models\Hy-MT2-1.8B-Q4_K_M.gguf" --out report.txt
+LAMM.exe --autotune model.gguf --context 32768   # 要更长上下文
+LAMM.exe --autotune model.gguf --max-vram 50     # 更保守的安全上限
 
 # 查看某个已注册模型真正会用的 llama-server 命令行（用于核对有没有多余参数）
-LocalAIModelManager.exe --show-command <模型ID>
+LAMM.exe --show-command <模型ID>
 ```
 
 改完参数后，已加载的模型需要点 **重启** 才会用新参数。

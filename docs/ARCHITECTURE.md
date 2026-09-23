@@ -1,4 +1,4 @@
-# Local AI Model Manager — 架构与项目结构
+# LAMM — 架构与项目结构
 
 > 目标：Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API 网关**。
 > 不使用 Ollama。首个推理引擎为 **llama.cpp / llama-server**，引擎可独立替换与升级。
@@ -57,6 +57,14 @@
 ---
 
 ## 3. 项目结构
+
+**命名说明**：产品名是 **LAMM**（Local AI Model Manager），exe 是 `LAMM.exe`，
+辅助进程是 `LAMM.ControlHelper.exe`，发行包是 `LAMM-<版本>-win-x64*`，
+配置目录是 `%APPDATA%\LAMM`。**C# 命名空间、解决方案与项目目录仍叫
+`LocalAIModelManager.*`** —— 改名只动对用户可见的部分，不动代码标识符。
+旧配置目录（`%APPDATA%\LocalAIModelManager`）与旧开机启动注册表值
+（`LocalAIModelManager`）会在首次启动时自动迁移/改写，见 `AppPaths` 与
+`StartupRegistration`。
 
 ```
 LocalAIModelManager/
@@ -356,7 +364,7 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 
 | 形态 | 体积 | 目标机器要求 | 入口 |
 |---|---|---|---|
-| 框架依赖包 | 约 1.2 MB | .NET 10 Desktop Runtime + ASP.NET Core Runtime | `LocalAIModelManager.exe` |
+| 框架依赖包 | 约 1.2 MB | .NET 10 Desktop Runtime + ASP.NET Core Runtime | `LAMM.exe` |
 | 免安装包 | 约 201 MB | 无 | `Start.cmd`（设置 `DOTNET_ROOT` 指向随包私有运行时） |
 
 **为什么不用 `--self-contained`**：apphost 是否为自包含在 apphost 编译期由 SDK 决定，

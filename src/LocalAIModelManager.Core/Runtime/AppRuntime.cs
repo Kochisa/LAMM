@@ -464,7 +464,7 @@ public sealed class AppRuntime : IAsyncDisposable
     }
 
     private static string DefaultControlHelperPath() =>
-        Path.Combine(AppContext.BaseDirectory, "LocalAIModelManager.ControlHelper.exe");
+        Path.Combine(AppContext.BaseDirectory, "LAMM.ControlHelper.exe");
 
     private void SeedEnginesIfNeeded()
     {
