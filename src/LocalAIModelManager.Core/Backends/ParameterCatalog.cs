@@ -82,8 +82,12 @@ public static class ParameterCatalog
         new()
         {
             Key = "--ctx-size", DisplayName = "Context length", Category = ParameterCategories.Context,
-            Kind = ParameterKind.Integer, DefaultValue = "4096", Aliases = new[] { "-c" },
-            ValueHint = "<n>", Description = "Size of the prompt context in tokens.",
+            Kind = ParameterKind.Integer, DefaultValue = "8192", Aliases = new[] { "-c" },
+            ValueHint = "<n>",
+            Description = "Prompt context in tokens. llama.cpp reserves the whole KV cache at load "
+                        + "time, so this is usually the biggest VRAM consumer: a 32-layer / 4-KV-head "
+                        + "model costs about 64 KB per token (8192 -> 0.5 GiB, 262144 -> 16 GiB). "
+                        + "Unset means the model's trained context, which can be huge.",
         },
         new()
         {
@@ -107,7 +111,9 @@ public static class ParameterCatalog
         {
             Key = "--cache-type-k", DisplayName = "KV cache type (K)", Category = ParameterCategories.KvCache,
             Kind = ParameterKind.Enum, DefaultValue = "f16", AllowedValues = KvCacheTypes,
-            ValueHint = "<type>", Description = "Quantizing K reduces VRAM at some quality cost.",
+            ValueHint = "<type>",
+            Description = "Quantizing the KV cache cuts its VRAM roughly in half (q8_0) or more (q4_0). "
+                        + "The KV cache is often far larger than the model itself.",
         },
         new()
         {
@@ -118,12 +124,16 @@ public static class ParameterCatalog
         new()
         {
             Key = "--flash-attn", DisplayName = "Flash attention", Category = ParameterCategories.KvCache,
-            Kind = ParameterKind.Boolean, Description = "Enables the flash attention kernel.",
+            Kind = ParameterKind.Boolean,
+            Description = "Enables the flash attention kernel. Required by some builds before the V "
+                        + "cache may be quantized with --cache-type-v.",
         },
         new()
         {
             Key = "--no-kv-offload", DisplayName = "Keep KV cache on CPU", Category = ParameterCategories.KvCache,
-            Kind = ParameterKind.Boolean, Advanced = true,
+            Kind = ParameterKind.Boolean,
+            Description = "Moves the KV cache to system RAM instead of VRAM. Great for small models "
+                        + "with a huge context; generation gets slower.",
         },
         new()
         {

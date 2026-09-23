@@ -156,15 +156,38 @@ IBackendAdapter.Inspect(engine)
 参数解析优先级：`ModelParameters.Defaults` → `ModelParameters.ExtraArguments` → **模型自己的参数**（最高）。
 `--model / --host / --port / --alias / --no-webui` 属于「管理器托管」，模型无法覆盖。
 
-**GPU 优先的内置默认值**：llama.cpp 自己的默认是 `-ngl 0`（纯 CPU），这对桌面用户几乎总是错的。
-因此 `ModelParameterSettings.BuiltInDefaults` 内置了 `--n-gpu-layers = 99`（全部层卸载到显卡），
+**落地友好的内置默认值**：llama.cpp 的两个默认值对桌面用户都不合适——`-ngl 0` 让它跑纯 CPU，
+而未指定上下文时它会采用**模型自身的训练上下文**（长上下文模型会把显存吃光）。
+因此 `ModelParameterSettings.BuiltInDefaults` 内置了：
+
+```
+--n-gpu-layers = 99      # 全部层卸载到显卡
+--ctx-size     = 8192    # 上下文上限，直接决定 KV cache 大小
+```
+
 并在 `Normalize()` 中按 `DefaultsVersion` **一次性**写入 `Defaults`：
 
-- 全新配置直接带上该默认值；
-- 老配置（没有 `defaultsVersion` 字段）在下次启动时自动补上，用户已设置的值不会被覆盖；
-- 用户把它删掉或改成 `0` 之后**不会**被重新塞回来（版本戳已经打过）；
-- 引擎若不支持该参数，`BuildLaunchPlan` 会按能力探测结果丢弃它并记录警告；
-- 机器没有可用 GPU 时，llama.cpp 会忽略该参数并回退到 CPU。
+- 全新配置直接带上这两个默认值；
+- 老配置（`defaultsVersion` 落后）在下次启动时自动补上，用户已设置的值不会被覆盖；
+- 用户把它们删掉或改小之后**不会**被重新塞回来（版本戳已经打过）；
+- 引擎若不支持某个参数，`BuildLaunchPlan` 会按能力探测结果丢弃它并记录警告；
+- 机器没有可用 GPU 时，llama.cpp 会忽略 `--n-gpu-layers` 并回退到 CPU。
+
+**为什么必须给 `--ctx-size` 一个上界**：llama.cpp 在加载时按上下文长度**一次性预留整个
+KV cache**，它往往远大于模型权重。以 `Hy-MT2-1.8B-Q4_K_M`（`hunyuan-dense`，32 层，
+4 个 KV 头，`context_length = 262144`）为例，每 token 的 KV 是
+`32 × 4 × (128+128) × 2 字节 = 64 KB`：
+
+| 上下文 | KV cache | 含 1.05 GB 权重的总占用 |
+|---|---|---|
+| 262144（不指定时的默认） | 16 GB | ~18 GB |
+| 32768 | 2 GB | ~4 GB |
+| 8192（本项目默认） | 0.5 GB | ~1.7 GB |
+
+模型加载完成后，`ModelLifecycleManager.WarnIfVramIsTightAsync` 会检查该进程占用的显存；
+超过显卡 85%（或空闲不足 512 MiB）时，在模型状态与运行日志中直接给出这条解释和可选处置
+（调小 `--ctx-size`、用 `--cache-type-k/-v q8_0` 压缩 KV、或 `--no-kv-offload` 放到内存）。
+
 
 ### 4.4 生命周期状态机
 

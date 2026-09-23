@@ -114,19 +114,27 @@ public sealed class ModelParameterSettings
     public int DefaultsVersion { get; set; }
 
     /// <summary>Current built-in baseline version. Bump when <see cref="BuiltInDefaults"/> changes.</summary>
-    public const int CurrentDefaultsVersion = 1;
+    public const int CurrentDefaultsVersion = 2;
 
     /// <summary>
-    /// GPU-first baseline applied to every model. llama.cpp defaults to
-    /// <c>-ngl 0</c> (pure CPU), which is almost never what a desktop user wants,
-    /// so the manager ships full GPU offload as the default instead.
-    /// Engines that do not advertise the flag simply drop it (with a warning), and
-    /// a user who really wants CPU can set the value to 0.
+    /// Baseline applied to every model, tuned for a desktop with one GPU.
+    ///
+    /// <list type="bullet">
+    /// <item><c>--n-gpu-layers 99</c>: llama.cpp defaults to <c>-ngl 0</c> (pure CPU), which is
+    /// almost never what a desktop user wants.</item>
+    /// <item><c>--ctx-size 8192</c>: since llama.cpp treats an unset context as "use the model's
+    /// trained context", a long-context model silently reserves an enormous KV cache at load
+    /// time (a 256K-context 1.8B model costs ~16 GiB). Bounding the context keeps a small model
+    /// actually small; raise it per model when long context is needed.</item>
+    /// </list>
+    ///
+    /// Engines that do not advertise a flag simply drop it (with a warning).
     /// </summary>
     public static IReadOnlyDictionary<string, string> BuiltInDefaults { get; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["--n-gpu-layers"] = "99",
+            ["--ctx-size"] = "8192",
         };
 
     /// <summary>Default CLI flag values applied to every model unless overridden.</summary>

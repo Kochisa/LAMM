@@ -505,6 +505,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
             slot.Ready?.TrySetResult(ready);
             ModelLoaded?.Invoke(this, model.Id);
+            await WarnIfVramIsTightAsync(slot, model, process, parameters, cancellationToken).ConfigureAwait(false);
             return ready;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -841,6 +842,77 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
         _logger.Warn("lifecycle", $"model '{model.Id}': {message}");
         return message;
+    }
+
+    /// <summary>
+    /// After a model is ready, look at what it actually cost. A small model filling the
+    /// whole card is nearly always the KV cache, which llama.cpp reserves up front for
+    /// the full context - so say that, instead of leaving the user guessing.
+    /// </summary>
+    private async Task WarnIfVramIsTightAsync(
+        ModelSlot slot,
+        ModelDefinition model,
+        IBackendProcess process,
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken cancellationToken)
+    {
+        if (!_resources.GpuAvailable)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await _resources.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            var total = snapshot.PrimaryTotalBytes;
+            var free = snapshot.PrimaryFreeBytes;
+            var used = snapshot.ProcessVram(process.Pid);
+
+            if (total is null or 0 || used is null)
+            {
+                return;
+            }
+
+            const double GiB = 1024.0 * 1024 * 1024;
+            var ratio = (double)used.Value / total.Value;
+            var lowFree = free is { } f && f < 512L * 1024 * 1024;
+            if (ratio < 0.85 && !lowFree)
+            {
+                return;
+            }
+
+            var context = parameters.TryGetValue("--ctx-size", out var ctx)
+                ? $"--ctx-size = {ctx}"
+                : "未设置 --ctx-size（引擎会采用模型自身的训练上下文）";
+
+            var message =
+                $"模型 '{model.Id}' 加载后占用了 {used.Value / GiB:F1} GiB 显存（约占显卡的 {ratio * 100:F0}%，" +
+                $"卡片共 {total.Value / GiB:F1} GiB；模型文件仅 {SafeFileSize(model) / GiB:F2} GiB）。当前 {context}。" +
+                "KV cache 是按上下文长度一次性预留的，通常远大于模型权重本身；" +
+                "若不需要长上下文，请调小 --ctx-size，或用 --cache-type-k / --cache-type-v 选 q8_0 压缩 KV cache，" +
+                "或勾选 --no-kv-offload 把 KV cache 放到内存。";
+
+            _logger.Warn("resources", message);
+            slot.LaunchWarning = slot.LaunchWarning is { Length: > 0 } previous
+                ? previous + Environment.NewLine + message
+                : message;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Debug("resources", $"VRAM check after load failed for '{model.Id}': {ex.Message}");
+        }
+    }
+
+    private static long SafeFileSize(ModelDefinition model)
+    {
+        try
+        {
+            return model.FileExists() ? new FileInfo(model.FilePath).Length : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
     }
 
     private string? EngineName(string engineId) =>
