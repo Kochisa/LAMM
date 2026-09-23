@@ -14,10 +14,18 @@ public sealed record AutoTuneInput
     public int MinFreeVramMiB { get; init; } = 1024;
 
     /// <summary>
-    /// Ceiling for this model, as a percentage of total VRAM. This is the knob that stops
-    /// "it fits mathematically" from becoming "it filled my card".
+    /// Ceiling for this model, as a percentage of total VRAM. It is a safety limit, not a
+    /// goal: the tuner aims at <see cref="TargetContextSize"/> and only consults this when
+    /// even that does not fit.
     /// </summary>
     public int MaxVramUsagePercent { get; init; } = 70;
+
+    /// <summary>
+    /// Context length the tuner aims for. Deliberately modest (Ollama uses a similar
+    /// value): because llama.cpp reserves the whole KV cache up front, a generous default
+    /// here is what turns a 1.8B model into several GiB of VRAM.
+    /// </summary>
+    public int TargetContextSize { get; init; } = 8192;
 
     public int FallbackContextSize { get; init; } = 8192;
 
@@ -52,8 +60,11 @@ public static class ModelAutoTuner
 {
     private const double GiB = 1024.0 * 1024 * 1024;
 
-    /// <summary>Graph, logits buffer and CUDA context overhead llama.cpp needs on top of weights + KV.</summary>
-    private const long ComputeReserveBytes = (long)(1.5 * GiB);
+    /// <summary>
+    /// Graph, logits buffer and CUDA context overhead llama.cpp needs on top of weights
+    /// and KV cache. Deliberately an over-estimate so the reported total stays honest.
+    /// </summary>
+    private const long ComputeReserveBytes = (long)(1.0 * GiB);
 
     /// <summary>
     /// Multiplier applied to the raw KV size to cover the graph and logits buffers, which
@@ -132,56 +143,79 @@ public static class ModelAutoTuner
         var keepFree = input.MinFreeVramMiB * 1024L * 1024L;
         var usagePercent = Math.Clamp(input.MaxVramUsagePercent, 20, 100);
         var ceiling = Math.Min((long)(totalVram * (usagePercent / 100.0)), totalVram - keepFree);
-        var budget = ceiling - ComputeReserveBytes;
-        if (budget <= 0)
+        var headroom = ceiling - ComputeReserveBytes;
+        if (headroom <= 0)
         {
-            budget = (long)(totalVram * 0.5);
-            warnings.Add("按显存使用上限扣除计算缓冲后没有剩余空间，已按总显存的 50% 估算预算。");
+            headroom = (long)(totalVram * 0.5) - ComputeReserveBytes;
+            warnings.Add("按显存使用上限扣除计算缓冲后没有剩余空间，已按总显存的 50% 估算可用量。");
         }
+
+        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var trainedContext = metadata.ContextLength is { } c and > 0 ? c : input.FallbackContextSize;
+
+        // The context length is the primary knob and it is a TARGET, not "whatever fits":
+        // llama.cpp reserves the whole KV cache up front, so deriving the context from
+        // spare VRAM is what made a 1.8B model fill a 24 GiB card. The ceiling above is
+        // only a safety limit for when even the modest target does not fit.
+        var targetContext = Math.Clamp(input.TargetContextSize, MinimumContext, Math.Max(MinimumContext, trainedContext));
+        var desiredContext = Math.Min(targetContext, trainedContext);
 
         explanation.Add(
             $"显存：共 {totalVram / GiB:F1} GiB" +
             (input.FreeVramBytes is { } free ? $"（当前空闲 {free / GiB:F1} GiB）" : string.Empty) +
-            $"；单模型使用上限 {usagePercent}% = {ceiling / GiB:F1} GiB，扣除 {ComputeReserveBytes / GiB:F1} GiB 计算缓冲后可用 {budget / GiB:F1} GiB。");
+            $"；单模型安全上限 {usagePercent}% = {ceiling / GiB:F1} GiB（仅用于判断是否放得下）。");
+        explanation.Add($"目标上下文：{desiredContext}（可在「设置 → 资源」里调整）；模型训练上下文 {trainedContext}。");
 
-        var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var trainedContext = metadata.ContextLength is { } c and > 0 ? c : input.FallbackContextSize;
+        var kvForDesired = (long)(desiredContext * kvBytes * KvBufferFactor);
         var minimumKv = kvBytes * MinimumContext;
 
         int context;
         int gpuLayers;
 
-        if (weights + minimumKv <= budget)
+        if (weights + kvForDesired + ComputeReserveBytes <= ceiling)
         {
-            // The whole model fits, so offload everything and spend the rest on context.
-            // The extra factor covers the graph/logits buffers, which grow with context.
+            // The modest target fits comfortably - keep the model fully on the GPU and do
+            // NOT spend the leftover VRAM on a longer context.
             gpuLayers = ParseLayers(input.FallbackGpuLayers);
-            var affordable = (long)((budget - weights) / (kvBytes * KvBufferFactor));
-            context = PickNiceContext((int)Math.Min(affordable, trainedContext), trainedContext, warnings);
-            explanation.Add($"权重 {weights / GiB:F2} GiB 可全部放进显存，因此 --n-gpu-layers {gpuLayers}（全部层）。");
+            context = desiredContext;
+            explanation.Add(
+                $"权重 {weights / GiB:F2} GiB + 目标上下文的 KV cache 约 {kvForDesired / GiB:F2} GiB 都在限额内，" +
+                $"因此 --n-gpu-layers {gpuLayers}（全部层）、--ctx-size {context}（不额外吃满显存）。");
         }
         else
         {
-            // Weights alone exceed the budget: offload a proportional share of the layers.
-            var reserveKv = kvBytes * MinimumContext;
-            var forWeights = Math.Max(0L, budget - reserveKv);
-            var fraction = weights <= 0 ? 1.0 : Math.Min(1.0, (double)forWeights / weights);
-            gpuLayers = (int)Math.Floor(metadata.BlockCount!.Value * fraction);
-            context = PickNiceContext(MinimumContext, trainedContext, warnings);
-
-            explanation.Add(
-                $"权重 {weights / GiB:F2} GiB 超过预算 {budget / GiB:F1} GiB，无法整模型放进显存：" +
-                $"按比例卸载 {gpuLayers}/{metadata.BlockCount} 层，其余留在 CPU（速度会明显下降）。");
-
-            if (gpuLayers <= 0)
+            // Even the target does not fit: shrink the context first, then the layer count.
+            var affordable = (long)((headroom - weights) / (kvBytes * KvBufferFactor));
+            if (affordable >= MinimumContext)
             {
-                warnings.Add("显存不足以放进任何一层，该模型将完全在 CPU 上运行。");
-                gpuLayers = 0;
+                gpuLayers = ParseLayers(input.FallbackGpuLayers);
+                context = PickNiceContext((int)affordable, trainedContext, warnings);
+                explanation.Add(
+                    $"目标上下文 {desiredContext} 放不下（权重 {weights / GiB:F2} GiB + KV {kvForDesired / GiB:F2} GiB " +
+                    $"超过限额 {ceiling / GiB:F1} GiB），已收敛到 --ctx-size {context}；--n-gpu-layers {gpuLayers}（全部层）。");
             }
-            else if (gpuLayers < metadata.BlockCount)
+            else
             {
-                warnings.Add($"仅 {gpuLayers}/{metadata.BlockCount} 层能放进显存，其余在 CPU 上；" +
-                             "可用更小的量化版本，或用 --cache-type-k/-v q8_0 压缩 KV cache 腾出显存。");
+                var reserveKv = kvBytes * MinimumContext;
+                var forWeights = Math.Max(0L, headroom - reserveKv);
+                var fraction = weights <= 0 ? 1.0 : Math.Min(1.0, (double)forWeights / weights);
+                gpuLayers = (int)Math.Floor(metadata.BlockCount!.Value * fraction);
+                context = PickNiceContext(MinimumContext, trainedContext, warnings);
+
+                explanation.Add(
+                    $"权重 {weights / GiB:F2} GiB 已超过限额 {ceiling / GiB:F1} GiB，无法整模型放进显存：" +
+                    $"按比例卸载 {gpuLayers}/{metadata.BlockCount} 层，其余留在 CPU（速度会明显下降）。");
+
+                if (gpuLayers <= 0)
+                {
+                    warnings.Add("显存不足以放进任何一层，该模型将完全在 CPU 上运行。");
+                    gpuLayers = 0;
+                }
+                else if (gpuLayers < metadata.BlockCount)
+                {
+                    warnings.Add($"仅 {gpuLayers}/{metadata.BlockCount} 层能放进显存，其余在 CPU 上；" +
+                                 "可用更小的量化版本，或用 --cache-type-k/-v q8_0 压缩 KV cache 腾出显存。");
+                }
             }
         }
 
@@ -197,9 +231,14 @@ public static class ModelAutoTuner
 
         if (context < trainedContext)
         {
+            var reason = context == desiredContext
+                ? $"该模型训练上下文为 {trainedContext}，这里按保守的目标上下文 {context} 配置（不是显存不够，而是刻意留余量）"
+                : $"该模型训练上下文为 {trainedContext}，目标上下文放不下，已收敛到 {context}";
+
             explanation.Add(
-                $"该模型训练上下文为 {trainedContext}，已按显存收敛到 {context}。" +
-                "需要更长上下文时：--cache-type-k q8_0 与 --cache-type-v q8_0 可把 KV 压到约一半（同样显存约可支持 2 倍上下文），" +
+                reason +
+                "。需要更长上下文时：把「设置 → 资源 → 自动调参的目标上下文」调大，" +
+                "或用 --cache-type-k q8_0 与 --cache-type-v q8_0 把 KV 压到约一半（同样显存约可支持 2 倍上下文），" +
                 "或勾选 --no-kv-offload 把 KV cache 放到内存。");
         }
 

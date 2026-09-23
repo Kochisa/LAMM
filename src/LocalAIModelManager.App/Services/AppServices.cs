@@ -147,6 +147,7 @@ public sealed class AppServices
             FreeVramBytes = gpu?.FreeBytes,
             MinFreeVramMiB = settings.Lifecycle.MinFreeVramMiB,
             MaxVramUsagePercent = settings.Resources.MaxVramUsagePercent,
+            TargetContextSize = settings.Resources.AutoTuneContextSize,
             FallbackGpuLayers = settings.ModelParameters.Defaults.TryGetValue("--n-gpu-layers", out var layers) &&
                                 int.TryParse(layers, out var parsedLayers) && parsedLayers > 0
                 ? parsedLayers

@@ -222,16 +222,24 @@ public sealed class ResourceSettings
 
     /// <summary>
     /// Ceiling the automatic parameter tuning will spend on a single model, as a
-    /// percentage of total VRAM. Keeping this below 100 is what stops a small model
-    /// with a long context from filling the whole card and starving everything else.
+    /// percentage of total VRAM. It is a safety limit, not a goal: the tuner aims at
+    /// <see cref="AutoTuneContextSize"/> and only consults this when that does not fit.
     /// </summary>
     public int MaxVramUsagePercent { get; set; } = 70;
+
+    /// <summary>
+    /// Context length the automatic tuning aims for. 8192 is a deliberately modest
+    /// default - llama.cpp reserves the entire KV cache up front, so a generous value
+    /// here is what makes a small model occupy several GiB of VRAM.
+    /// </summary>
+    public int AutoTuneContextSize { get; set; } = 8192;
 
     public void Normalize()
     {
         PollIntervalMs = Math.Clamp(PollIntervalMs, 250, 60_000);
         GpuIndex = Math.Max(0, GpuIndex);
         MaxVramUsagePercent = Math.Clamp(MaxVramUsagePercent, 20, 100);
+        AutoTuneContextSize = Math.Clamp(AutoTuneContextSize, 512, 1_048_576);
     }
 }
 

@@ -224,6 +224,13 @@ public partial class App : Application
                 ? parsedPercent
                 : 70;
 
+            var contextIndex = Array.FindIndex(args, a => string.Equals(a, "--context", StringComparison.OrdinalIgnoreCase));
+            var targetContext = contextIndex >= 0 &&
+                                contextIndex + 1 < args.Length &&
+                                int.TryParse(args[contextIndex + 1], out var parsedContext)
+                ? parsedContext
+                : 8192;
+
             var result = Core.Models.ModelAutoTuner.Tune(new Core.Models.AutoTuneInput
             {
                 ModelFilePath = modelPath,
@@ -231,6 +238,7 @@ public partial class App : Application
                 TotalVramBytes = gpu?.TotalBytes,
                 FreeVramBytes = gpu?.FreeBytes,
                 MaxVramUsagePercent = maxVramPercent,
+                TargetContextSize = targetContext,
             });
 
             var report = new List<string>

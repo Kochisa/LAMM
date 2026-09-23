@@ -386,14 +386,26 @@ public static class SettingsSections
                 },
                 new()
                 {
+                    Key = "autoTuneContext",
+                    Label = "自动调参的目标上下文",
+                    Suffix = "token",
+                    Kind = SettingFieldKind.Number,
+                    Min = 512,
+                    Max = 1048576,
+                    Help = "自动调参按这个值配上下文，而不是「显存能塞多少就塞多少」。KV cache 按上下文一次性预留，" +
+                           "所以这个值直接决定显存占用：1.8B 模型在 8192 下 KV 约 0.5 GiB，在 131072 下约 8 GiB。默认 8192。",
+                    Read = s => s.Resources.AutoTuneContextSize.ToString(),
+                    Write = (s, v) => s.Resources.AutoTuneContextSize = int.Parse(v),
+                },
+                new()
+                {
                     Key = "maxVramUsagePercent",
-                    Label = "单模型显存使用上限",
+                    Label = "单模型显存安全上限",
                     Suffix = "%",
                     Kind = SettingFieldKind.Number,
                     Min = 20,
                     Max = 100,
-                    Help = "自动调参按这个上限给模型配上下文。默认 70%，留出余量给浏览器等其他程序；" +
-                           "调到 100% 就等于「能塞多少塞多少」，小模型的长上下文会重新把显存吃满。",
+                    Help = "只作为安全阀：当目标上下文都放不下时才用它来收缩。不是「尽量用满」的目标值。默认 70%。",
                     Read = s => s.Resources.MaxVramUsagePercent.ToString(),
                     Write = (s, v) => s.Resources.MaxVramUsagePercent = int.Parse(v),
                 },

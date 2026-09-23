@@ -185,8 +185,13 @@ IBackendAdapter.Inspect(engine)
 | 8192 | 0.5 GB | ~1.7 GB |
 
 这两件事都由用户决定；`ModelAutoTuner` 只在**显式触发**时（模型编辑窗口的按钮、模型页的
-「自动调参」、命令行 `--autotune`）给出建议值，并以 `ResourceSettings.MaxVramUsagePercent`
-（默认 70%）为上限，避免建议值本身把卡吃满。
+「自动调参」、命令行 `--autotune`）给出建议值。
+
+自动调参的策略是「**按目标上下文配**」，不是「按剩余显存配」：
+`ResourceSettings.AutoTuneContextSize`（默认 8192）是瞄准值，KV cache 由它决定；
+`ResourceSettings.MaxVramUsagePercent`（默认 70%）只是**安全阀**，仅在目标值都放不下时
+才用于收缩上下文、再收缩层数。把上限当目标会让 1.8B 模型在 24 GiB 卡上占掉 18 GiB——
+那正是这条策略要避免的。
 
 模型加载完成后，`ModelLifecycleManager.WarnIfVramIsTightAsync` 会检查该进程占用的显存；
 超过显卡 85%（或空闲不足 512 MiB）时，在模型状态与运行日志中直接给出这条解释和可选处置
