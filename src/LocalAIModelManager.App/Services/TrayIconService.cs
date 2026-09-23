@@ -194,7 +194,41 @@ public sealed class TrayIconService : IDisposable
         _icon.Dispose();
     }
 
+    /// <summary>
+    /// The notification area icon is the application's own icon, asked for the size the
+    /// current DPI actually needs. The .ico carries DIB frames from 16 to 256 px, so this
+    /// stays crisp on scaled displays instead of being resampled from one bitmap.
+    ///
+    /// A missing resource must not leave the tray empty, so there is a drawn fallback.
+    /// </summary>
     private static Icon CreateIcon()
+    {
+        var bundled = TryLoadBundledIcon();
+        return bundled ?? DrawFallbackIcon();
+    }
+
+    private static Icon? TryLoadBundledIcon()
+    {
+        try
+        {
+            var resource = System.Windows.Application.GetResourceStream(
+                new Uri("Assets/LAMM.ico", UriKind.Relative));
+            if (resource?.Stream is null)
+            {
+                return null;
+            }
+
+            using var stream = resource.Stream;
+            using var source = new Icon(stream, SystemInformation.SmallIconSize);
+            return (Icon)source.Clone();
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or System.Resources.MissingManifestResourceException)
+        {
+            return null;
+        }
+    }
+
+    private static Icon DrawFallbackIcon()
     {
         using var bitmap = new Bitmap(32, 32);
         using (var graphics = Graphics.FromImage(bitmap))
@@ -202,25 +236,22 @@ public sealed class TrayIconService : IDisposable
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.Clear(Color.Transparent);
 
-            using var background = new SolidBrush(Color.FromArgb(255, 46, 62, 110));
-            graphics.FillEllipse(background, 0, 0, 31, 31);
-
-            using var accent = new SolidBrush(Color.FromArgb(255, 76, 141, 255));
-            graphics.FillEllipse(accent, 5, 5, 21, 21);
+            using var background = new SolidBrush(Color.FromArgb(255, 0, 0, 0));
+            graphics.FillRectangle(background, 0, 0, 32, 32);
 
             using var font = new Font("Segoe UI", 12, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var textBrush = new SolidBrush(Color.FromArgb(255, 11, 13, 18));
+            using var textBrush = new SolidBrush(Color.FromArgb(255, 255, 255, 255));
             var format = new StringFormat
             {
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Center,
             };
 
-            graphics.DrawString("AI", font, textBrush, new RectangleF(0, 0, 32, 32), format);
+            graphics.DrawString("LAMM", font, textBrush, new RectangleF(0, 0, 32, 32), format);
         }
 
         // Clone so the icon owns its own handle; the source handle stays alive for
-        // the lifetime of the process (a single 32x32 icon).
+        // the lifetime of the process.
         using var temporary = Icon.FromHandle(bitmap.GetHicon());
         return (Icon)temporary.Clone();
     }

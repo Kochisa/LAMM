@@ -1,5 +1,7 @@
 # LAMM
 
+<img align="right" width="104" src="docs/assets/lamm-icon-512.png" alt="LAMM icon">
+
 **L**ocal **A**I **M**odel **M**anager —— Windows 11 桌面端的**本地模型生命周期管理器 + OpenAI 兼容 API 网关**。
 
 - **不使用 Ollama。**
@@ -18,15 +20,15 @@
 
 | 产物 | 体积 | 目标机器要求 | 启动方式 |
 |---|---|---|---|
-| `LAMM-0.1.9-win-x64\`（+ `.zip`） | 约 1.2 MB | 需安装 **.NET 10 Desktop Runtime + ASP.NET Core Runtime** | 双击 `LAMM.exe` |
-| `LAMM-0.1.9-win-x64-portable\`（+ `.zip`） | 约 201 MB（zip 83 MB） | **无需安装任何 .NET 组件** | 双击 **`Start.cmd`** |
+| `LAMM-0.1.10-win-x64\`（+ `.zip`） | 约 1.2 MB | 需安装 **.NET 10 Desktop Runtime + ASP.NET Core Runtime** | 双击 `LAMM.exe` |
+| `LAMM-0.1.10-win-x64-portable\`（+ `.zip`） | 约 201 MB（zip 83 MB） | **无需安装任何 .NET 组件** | 双击 **`Start.cmd`** |
 
 ```
 # 非 portable 版：目标机器需要 .NET 10 运行时
-LAMM-0.1.9-win-x64\LAMM.exe
+LAMM-0.1.10-win-x64\LAMM.exe
 
 # 免安装版：Start.cmd 会把 DOTNET_ROOT 指向随包的私有 .NET 运行时
-LAMM-0.1.9-win-x64-portable\Start.cmd
+LAMM-0.1.10-win-x64-portable\Start.cmd
 ```
 
 两个目录里都带了一个**离线演示引擎**（`engines\mock\llama-server.exe`），
