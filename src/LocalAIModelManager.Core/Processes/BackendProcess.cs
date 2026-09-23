@@ -368,8 +368,36 @@ public sealed class BackendProcess : IBackendProcess
         }
 
         // Engine stdout is never written to disk; it only feeds the in-memory buffer.
-        _logger.Debug($"engine:{EngineId}", line);
+        // Lines that explain GPU/backend behaviour (or a failure) are raised to
+        // Information so they stay visible at the default log level - otherwise the
+        // answer to "why is this running on the CPU?" would be filtered out.
+        _logger.Log(ClassifyEngineLine(line), $"engine:{EngineId}", line);
         OutputLine?.Invoke(this, line);
+    }
+
+    private static Logging.LogLevel ClassifyEngineLine(string line)
+    {
+        if (line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("cannot", StringComparison.OrdinalIgnoreCase))
+        {
+            return Logging.LogLevel.Warning;
+        }
+
+        if (line.Contains("cuda", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("vulkan", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("rocm", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("metal", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("gpu", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("device", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("offload", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("backend", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("warning", StringComparison.OrdinalIgnoreCase))
+        {
+            return Logging.LogLevel.Information;
+        }
+
+        return Logging.LogLevel.Debug;
     }
 
     private void OnExited()

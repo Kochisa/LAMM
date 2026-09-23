@@ -468,9 +468,12 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
                 throw new ModelUnavailableException(model.Id, string.Join(" ", problems));
             }
 
+            slot.LaunchArguments = plan.Arguments.ToArray();
+            slot.LaunchWarning = DetectGpuMismatch(model, engine, capabilities, parameters);
+
             SetState(slot, model.Id, ModelState.Loading, $"loading on port {port}");
             _logger.Info("lifecycle", $"loading model '{model.Id}' with engine '{engine.Name}' on {plan.BindHost}:{port}");
-            _logger.Debug("lifecycle", $"launch: {plan.CommandLine}");
+            _logger.Info("lifecycle", $"launch: {plan.CommandLine}");
 
             var settings = _settings.Current;
             process = adapter.StartProcess(plan, new BackendProcessContext
@@ -802,7 +805,42 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             TotalRequests = Interlocked.Read(ref slot.TotalRequests),
             LastStopMode = slot.LastStopMode,
             LastError = slot.LastError,
+            LaunchArguments = slot.LaunchArguments,
+            LaunchWarning = slot.LaunchWarning,
         };
+    }
+
+    /// <summary>
+    /// The single most confusing failure mode of a local setup: the user asks for GPU
+    /// offload, the engine binary ships a GPU backend, but the engine itself can see
+    /// no device (missing CUDA runtime DLLs, wrong build, driver mismatch) and quietly
+    /// runs on the CPU. Detect it and say so out loud.
+    /// </summary>
+    private string? DetectGpuMismatch(
+        ModelDefinition model,
+        EngineDefinition engine,
+        EngineCapabilities capabilities,
+        IReadOnlyDictionary<string, string> parameters)
+    {
+        if (capabilities.HasGpuDevice is not false)
+        {
+            return null;
+        }
+
+        if (!capabilities.RequestsGpuOffload(parameters))
+        {
+            return null;
+        }
+
+        parameters.TryGetValue("--n-gpu-layers", out var requested);
+        var message =
+            $"引擎 '{engine.Id}' 报告没有任何可用的 GPU 设备（llama-server --list-devices 返回空），" +
+            $"因此 '--n-gpu-layers {requested}' 会被忽略，模型将只能在 CPU 上运行。" +
+            "请确认该 llama.cpp 是 CUDA/Vulkan 版本，并且 CUDA 版本已把配套的 CUDA 运行时 DLL" +
+            "（cudart64_*.dll / cublas64_*.dll / cublasLt64_*.dll）解压到 llama-server.exe 同目录。";
+
+        _logger.Warn("lifecycle", $"model '{model.Id}': {message}");
+        return message;
     }
 
     private string? EngineName(string engineId) =>
@@ -872,5 +910,9 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         public string? LastError { get; set; }
 
         public BackendStopMode LastStopMode { get; set; } = BackendStopMode.None;
+
+        public IReadOnlyList<string> LaunchArguments { get; set; } = Array.Empty<string>();
+
+        public string? LaunchWarning { get; set; }
     }
 }

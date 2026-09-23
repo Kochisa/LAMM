@@ -292,6 +292,7 @@ public sealed class AppRuntime : IAsyncDisposable
     {
         var settings = Settings.Current;
         var statuses = Lifecycle.GetStatuses();
+        var engines = BuildEngineStatuses(settings);
 
         return new RuntimeStatusSnapshot
         {
@@ -311,14 +312,43 @@ public sealed class AppRuntime : IAsyncDisposable
             Models = statuses,
             Processes = Processes.Snapshot(),
             ExitedProcesses = Processes.History,
-            Engines = BuildEngineStatuses(settings),
+            Engines = engines,
             Resources = Resources.Current,
-            ValidationIssues = settings.Validate(),
+            ValidationIssues = BuildValidationIssues(settings, engines),
             LoadedModelCount = statuses.Count(s => s.IsLoaded),
             StandbyModelCount = statuses.Count(s => s.State == ModelState.Standby),
             LogEntryCount = Logs.Count,
             ConfigDirectory = ConfigDirectory,
         };
+    }
+
+    /// <summary>
+    /// Settings validation plus runtime findings. The GPU finding matters most: an
+    /// engine that cannot see a GPU while the parameters ask for offload means every
+    /// model silently runs on the CPU.
+    /// </summary>
+    private static IReadOnlyList<ValidationIssue> BuildValidationIssues(
+        AppSettings settings,
+        IReadOnlyList<EngineStatusInfo> engines)
+    {
+        var issues = new List<ValidationIssue>(settings.Validate());
+        var gpuOffloadRequested = settings.ModelParameters.Defaults.TryGetValue("--n-gpu-layers", out var layers) &&
+                                  int.TryParse(layers, out var parsed) &&
+                                  parsed > 0;
+
+        foreach (var engine in engines.Where(e => e.HasGpuDevice is false))
+        {
+            issues.Add(new ValidationIssue(
+                gpuOffloadRequested ? ValidationSeverity.Warning : ValidationSeverity.Info,
+                "Inference Engine",
+                $"引擎“{engine.Name}”报告没有任何可用的 GPU 设备（llama-server --list-devices 返回空）。" +
+                (gpuOffloadRequested
+                    ? "当前默认参数要求 GPU 卸载，但该请求会被忽略，模型只能在 CPU 上运行。" +
+                      "请确认它是 CUDA/Vulkan 版本，并且 CUDA 版本的运行时 DLL 已解压到 llama-server.exe 同目录。"
+                    : "该引擎只能使用 CPU。")));
+        }
+
+        return issues;
     }
 
     /// <summary>Re-probes an engine and caches the result (never loads a model).</summary>
@@ -398,6 +428,8 @@ public sealed class AppRuntime : IAsyncDisposable
                 SupportedParameterCount = capabilities?.Parameters.Count ?? 0,
                 ModelCount = Models.All.Count(m => string.Equals(m.EngineId, engine.Id, StringComparison.OrdinalIgnoreCase)),
                 IsSelected = string.Equals(settings.Engines.SelectedEngineId, engine.Id, StringComparison.OrdinalIgnoreCase),
+                AvailableDevices = capabilities?.AvailableDevices ?? Array.Empty<string>(),
+                HasGpuDevice = capabilities?.HasGpuDevice,
             });
         }
 

@@ -111,6 +111,16 @@ public sealed class LlamaCppBackendAdapter : OpenAiCompatibleBackendAdapter
             capabilities = capabilities with { Version = LlamaHelpParser.ExtractVersion(versionOutput) };
         }
 
+        // Whether GPU offload actually happens is decided by the engine's own view of
+        // its compute devices. A CUDA build with missing runtime DLLs reports none and
+        // silently falls back to the CPU, which is exactly what the user must be told.
+        var devices = ProbeDevices(engine);
+        capabilities = capabilities with
+        {
+            HasGpuDevice = devices.HasGpuDevice,
+            AvailableDevices = devices.Devices,
+        };
+
         return capabilities;
     }
 

@@ -52,6 +52,20 @@ public sealed record EngineStatusInfo
     public int ModelCount { get; init; }
 
     public bool IsSelected { get; init; }
+
+    /// <summary>Compute devices the engine itself reports (<c>--list-devices</c>).</summary>
+    public IReadOnlyList<string> AvailableDevices { get; init; } = Array.Empty<string>();
+
+    /// <summary><c>null</c> when the engine build cannot answer the device probe.</summary>
+    public bool? HasGpuDevice { get; init; }
+
+    public string GpuDevicesText => HasGpuDevice switch
+    {
+        true when AvailableDevices.Count > 0 => string.Join("；", AvailableDevices),
+        true => "已检测到 GPU 设备",
+        false => "未检测到任何 GPU 设备（将回退到 CPU）",
+        _ => "未知（该构建不支持 --list-devices）",
+    };
 }
 
 /// <summary>Everything the Runtime Status page renders, in one immutable snapshot.</summary>

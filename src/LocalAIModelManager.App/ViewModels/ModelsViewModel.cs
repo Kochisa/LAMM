@@ -58,6 +58,11 @@ public sealed class ModelRowViewModel : ObservableObject
 
     public string LastStopLabel => _status is null ? "—" : Labels.StopMode(_status.LastStopMode);
 
+    /// <summary>Exact engine command line, the ground truth for "is it on the GPU?".</summary>
+    public string LaunchCommandLine => _status?.LaunchCommandLine ?? string.Empty;
+
+    public string? LaunchWarning => _status?.LaunchWarning;
+
     public string? LastError => _status?.LastError;
 
     public string ParametersSummary
@@ -160,6 +165,19 @@ public sealed class ModelsViewModel : PageViewModelBase
             if (row.LastError is { Length: > 0 } error)
             {
                 lines.Add($"最近错误：{error}");
+            }
+
+            if (row.LaunchWarning is { Length: > 0 } warning)
+            {
+                lines.Add(string.Empty);
+                lines.Add($"⚠ {warning}");
+            }
+
+            if (row.LaunchCommandLine.Length > 0)
+            {
+                lines.Add(string.Empty);
+                lines.Add("实际启动命令行：");
+                lines.Add(row.LaunchCommandLine);
             }
 
             return string.Join(Environment.NewLine, lines);

@@ -232,4 +232,34 @@ public abstract class OpenAiCompatibleBackendAdapter : IBackendAdapter
             return false;
         }
     }
+
+    private static readonly TimeSpan DeviceProbeTimeout = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// Asks the engine which compute devices it can actually use
+    /// (<c>llama-server --list-devices</c>). This is the only reliable way to know
+    /// whether GPU offload will happen: a CUDA-enabled binary with missing runtime
+    /// DLLs silently reports no devices and falls back to the CPU.
+    /// Builds without the switch answer "unknown" instead of "no GPU".
+    /// </summary>
+    protected static (bool? HasGpuDevice, IReadOnlyList<string> Devices) ProbeDevices(Models.EngineDefinition engine)
+    {
+        if (string.IsNullOrWhiteSpace(engine.ExecutablePath) || !File.Exists(engine.ExecutablePath))
+        {
+            return (null, Array.Empty<string>());
+        }
+
+        try
+        {
+            var probe = EngineProcessRunner
+                .RunAsync(engine.ExecutablePath, new[] { "--list-devices" }, DeviceProbeTimeout)
+                .GetAwaiter().GetResult();
+
+            return LlamaHelpParser.ParseDevices(probe.CombinedOutput);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            return (null, Array.Empty<string>());
+        }
+    }
 }

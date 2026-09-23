@@ -73,6 +73,15 @@ public sealed class GenericOpenAiCompatibleAdapter : OpenAiCompatibleBackendAdap
                     DetectedFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                 }
                 : LlamaHelpParser.Parse(engine.Id, engine.ExecutablePath, help.CombinedOutput, fingerprint);
+
+            // Whether GPU offload will actually happen is decided by the engine's own
+            // view of its compute devices, so ask it directly.
+            var devices = ProbeDevices(engine);
+            capabilities = capabilities with
+            {
+                HasGpuDevice = devices.HasGpuDevice,
+                AvailableDevices = devices.Devices,
+            };
         }
 
         lock (_gate)

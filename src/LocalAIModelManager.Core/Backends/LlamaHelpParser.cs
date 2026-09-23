@@ -117,6 +117,53 @@ public static partial class LlamaHelpParser
         return null;
     }
 
+    /// <summary>
+    /// Parses <c>llama-server --list-devices</c>. Returns <c>(null, empty)</c> when the
+    /// output carries no device section at all, meaning the build does not support the
+    /// switch and nothing can be concluded about GPU availability.
+    /// </summary>
+    public static (bool? HasGpuDevice, IReadOnlyList<string> Devices) ParseDevices(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return (null, Array.Empty<string>());
+        }
+
+        var lines = output.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        var markerIndex = lines.FindIndex(l => l.Contains("Available devices:", StringComparison.OrdinalIgnoreCase));
+        if (markerIndex < 0)
+        {
+            return (null, Array.Empty<string>());
+        }
+
+        var devices = new List<string>();
+        for (var i = markerIndex + 1; i < lines.Count; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                break;
+            }
+
+            if (line.Equals("(none)", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, Array.Empty<string>());
+            }
+
+            devices.Add(line);
+        }
+
+        if (devices.Count == 0)
+        {
+            return (false, Array.Empty<string>());
+        }
+
+        // llama.cpp never lists the CPU as a device, but a CPU-only entry would still
+        // mean "no GPU backend is usable".
+        var hasGpu = devices.Any(d => !d.StartsWith("CPU", StringComparison.OrdinalIgnoreCase));
+        return (hasGpu, devices);
+    }
+
     private static IEnumerable<Regex> VersionPatterns()
     {
         // "version: b6379 (1a2b3c4d)" / "build: b6379-mock" / "version = 6379"

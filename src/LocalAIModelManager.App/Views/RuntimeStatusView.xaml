@@ -209,17 +209,16 @@
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="推理引擎" Style="{StaticResource Text.SectionTitle}" />
-                        <DataGrid ItemsSource="{Binding Engines}" MaxHeight="180">
+                        <DataGrid ItemsSource="{Binding Engines}" MaxHeight="220">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="引擎 ID" Binding="{Binding Id}" Width="160" />
+                                <DataGridTextColumn Header="引擎 ID" Binding="{Binding Id}" Width="140" />
                                 <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
-                                <DataGridTextColumn Header="适配器" Binding="{Binding AdapterKind}" Width="140" />
-                                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="130" />
-                                <DataGridTextColumn Header="可执行文件" Binding="{Binding ExecutableExists}" Width="90" />
-                                <DataGridTextColumn Header="可用" Binding="{Binding IsAvailable}" Width="70" />
+                                <DataGridTextColumn Header="适配器" Binding="{Binding AdapterKind}" Width="130" />
+                                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="120" />
                                 <DataGridTextColumn Header="参数数" Binding="{Binding SupportedParameterCount}" Width="80" />
                                 <DataGridTextColumn Header="模型数" Binding="{Binding ModelCount}" Width="80" />
-                                <DataGridTextColumn Header="默认" Binding="{Binding IsSelected}" Width="70" />
+                                <DataGridTextColumn Header="默认" Binding="{Binding IsSelected}" Width="60" />
+                                <DataGridTextColumn Header="GPU 设备（引擎自报）" Binding="{Binding GpuDevicesText}" Width="320" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>

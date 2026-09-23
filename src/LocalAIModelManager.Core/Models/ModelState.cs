@@ -73,6 +73,19 @@ public sealed record ModelRuntimeStatus
 
     public string? LastError { get; init; }
 
+    /// <summary>
+    /// The exact command line the engine was launched with. This is the ground truth
+    /// for questions like "is it really offloading to the GPU?".
+    /// </summary>
+    public IReadOnlyList<string> LaunchArguments { get; init; } = Array.Empty<string>();
+
+    /// <summary>Non-fatal warning raised while loading, e.g. requested GPU offload but the engine sees no GPU device.</summary>
+    public string? LaunchWarning { get; init; }
+
+    public string LaunchCommandLine => LaunchArguments.Count == 0
+        ? string.Empty
+        : string.Join(' ', LaunchArguments.Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
+
     public bool IsLoaded => State == ModelState.Ready;
 }
 
