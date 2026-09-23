@@ -43,5 +43,9 @@ public static class ThemeManager
         }
 
         Current = wanted;
+
+        // The native title bar is not part of the palette, so it has to be repainted
+        // whenever the palette changes, otherwise the frame keeps the previous colours.
+        Infrastructure.WindowChrome.ApplyToOpenWindows();
     }
 }

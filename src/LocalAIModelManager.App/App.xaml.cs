@@ -32,6 +32,10 @@ public partial class App : Application
         base.OnStartup(e);
         UiDispatcher.Initialize(Dispatcher);
 
+        // Make the native window frame follow the palette (title bar, caption text and the
+        // 1px window border), for this window and every dialog created later.
+        WindowChrome.HookAllWindows();
+
         // Headless commands run before anything else (no window, no single-instance
         // mutex, no gateway) so the manager can be scripted.
         var commandLineExit = await TryRunCommandLineAsync(e.Args).ConfigureAwait(true);
