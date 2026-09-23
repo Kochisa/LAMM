@@ -95,8 +95,8 @@ public static class ModelAutoTuner
 
         if (metadata is null)
         {
-            warnings.Add("无法读取模型元数据（不是有效的 GGUF 文件？），已使用保守默认值。");
-            explanation.Add($"未能读取模型元数据，采用默认值：--ctx-size {input.FallbackContextSize}、--n-gpu-layers {input.FallbackGpuLayers}。");
+            warnings.Add(Loc.T("autotune.warn.noMetadata"));
+            explanation.Add(Loc.T("autotune.fallback.text", input.FallbackContextSize, input.FallbackGpuLayers));
             return new AutoTuneResult
             {
                 Parameters = fallback,
@@ -111,8 +111,8 @@ public static class ModelAutoTuner
         var kvPerToken = metadata.KvBytesPerToken();
         if (kvPerToken is not { } kvBytes)
         {
-            warnings.Add("模型元数据缺少层数/KV 头/注意力维度，无法计算 KV cache，已使用保守默认值。");
-            explanation.Add($"采用默认值：--ctx-size {input.FallbackContextSize}、--n-gpu-layers {input.FallbackGpuLayers}。");
+            warnings.Add(Loc.T("autotune.warn.noKvGeometry"));
+            explanation.Add(Loc.T("autotune.fallback.context", input.FallbackContextSize, input.FallbackGpuLayers));
             return new AutoTuneResult
             {
                 Parameters = fallback,
@@ -123,12 +123,12 @@ public static class ModelAutoTuner
             };
         }
 
-        explanation.Add($"KV cache：每 token 约 {kvBytes / 1024.0:F1} KB（f16），按上下文长度一次性预留。");
+        explanation.Add(Loc.T("autotune.kvPerToken", kvBytes / 1024.0));
 
         if (!input.GpuAvailable || input.TotalVramBytes is not { } totalVram || totalVram <= 0)
         {
-            warnings.Add("未检测到可用的 GPU 显存信息，无法按显存自动配比。");
-            explanation.Add($"采用默认值：--ctx-size {input.FallbackContextSize}、--n-gpu-layers {input.FallbackGpuLayers}。");
+            warnings.Add(Loc.T("autotune.warn.noGpuInfo"));
+            explanation.Add(Loc.T("autotune.fallback.context", input.FallbackContextSize, input.FallbackGpuLayers));
             return new AutoTuneResult
             {
                 Parameters = fallback,
@@ -147,7 +147,7 @@ public static class ModelAutoTuner
         if (headroom <= 0)
         {
             headroom = (long)(totalVram * 0.5) - ComputeReserveBytes;
-            warnings.Add("按显存使用上限扣除计算缓冲后没有剩余空间，已按总显存的 50% 估算可用量。");
+            warnings.Add(Loc.T("autotune.warn.noRoom"));
         }
 
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -160,11 +160,13 @@ public static class ModelAutoTuner
         var targetContext = Math.Clamp(input.TargetContextSize, MinimumContext, Math.Max(MinimumContext, trainedContext));
         var desiredContext = Math.Min(targetContext, trainedContext);
 
-        explanation.Add(
-            $"显存：共 {totalVram / GiB:F1} GiB" +
-            (input.FreeVramBytes is { } free ? $"（当前空闲 {free / GiB:F1} GiB）" : string.Empty) +
-            $"；单模型安全上限 {usagePercent}% = {ceiling / GiB:F1} GiB（仅用于判断是否放得下）。");
-        explanation.Add($"目标上下文：{desiredContext}（可在「设置 → 资源」里调整）；模型训练上下文 {trainedContext}。");
+        explanation.Add(Loc.T(
+            "autotune.memory",
+            totalVram / GiB,
+            input.FreeVramBytes is { } free ? Loc.T("autotune.memoryFree", free / GiB) : string.Empty,
+            usagePercent,
+            ceiling / GiB));
+        explanation.Add(Loc.T("autotune.targetContext", desiredContext, trainedContext));
 
         var kvForDesired = (long)(desiredContext * kvBytes * KvBufferFactor);
         var minimumKv = kvBytes * MinimumContext;
@@ -178,9 +180,7 @@ public static class ModelAutoTuner
             // NOT spend the leftover VRAM on a longer context.
             gpuLayers = ParseLayers(input.FallbackGpuLayers);
             context = desiredContext;
-            explanation.Add(
-                $"权重 {weights / GiB:F2} GiB + 目标上下文的 KV cache 约 {kvForDesired / GiB:F2} GiB 都在限额内，" +
-                $"因此 --n-gpu-layers {gpuLayers}（全部层）、--ctx-size {context}（不额外吃满显存）。");
+            explanation.Add(Loc.T("autotune.fits", weights / GiB, kvForDesired / GiB, gpuLayers, context));
         }
         else
         {
@@ -190,9 +190,9 @@ public static class ModelAutoTuner
             {
                 gpuLayers = ParseLayers(input.FallbackGpuLayers);
                 context = PickNiceContext((int)affordable, trainedContext, warnings);
-                explanation.Add(
-                    $"目标上下文 {desiredContext} 放不下（权重 {weights / GiB:F2} GiB + KV {kvForDesired / GiB:F2} GiB " +
-                    $"超过限额 {ceiling / GiB:F1} GiB），已收敛到 --ctx-size {context}；--n-gpu-layers {gpuLayers}（全部层）。");
+                explanation.Add(Loc.T(
+                    "autotune.shrunk",
+                    desiredContext, weights / GiB, kvForDesired / GiB, ceiling / GiB, context, gpuLayers));
             }
             else
             {
@@ -202,19 +202,18 @@ public static class ModelAutoTuner
                 gpuLayers = (int)Math.Floor(metadata.BlockCount!.Value * fraction);
                 context = PickNiceContext(MinimumContext, trainedContext, warnings);
 
-                explanation.Add(
-                    $"权重 {weights / GiB:F2} GiB 已超过限额 {ceiling / GiB:F1} GiB，无法整模型放进显存：" +
-                    $"按比例卸载 {gpuLayers}/{metadata.BlockCount} 层，其余留在 CPU（速度会明显下降）。");
+                explanation.Add(Loc.T(
+                    "autotune.partialOffload",
+                    weights / GiB, ceiling / GiB, gpuLayers, metadata.BlockCount));
 
                 if (gpuLayers <= 0)
                 {
-                    warnings.Add("显存不足以放进任何一层，该模型将完全在 CPU 上运行。");
+                    warnings.Add(Loc.T("autotune.warn.noLayers"));
                     gpuLayers = 0;
                 }
                 else if (gpuLayers < metadata.BlockCount)
                 {
-                    warnings.Add($"仅 {gpuLayers}/{metadata.BlockCount} 层能放进显存，其余在 CPU 上；" +
-                                 "可用更小的量化版本，或用 --cache-type-k/-v q8_0 压缩 KV cache 腾出显存。");
+                    warnings.Add(Loc.T("autotune.warn.partialLayers", gpuLayers, metadata.BlockCount));
                 }
             }
         }
@@ -224,22 +223,23 @@ public static class ModelAutoTuner
 
         var estimatedKv = (long)context * kvBytes;
         var estimatedTotal = weights + estimatedKv + ComputeReserveBytes;
-        explanation.Add(
-            $"结果：--ctx-size {context}（KV 约 {estimatedKv / GiB:F2} GiB）、--n-gpu-layers {gpuLayers}；" +
-            $"预计显存占用约 {estimatedTotal / GiB:F2} GiB / {totalVram / GiB:F1} GiB" +
-            $"（占显卡 {estimatedTotal * 100.0 / totalVram:F0}%，上限 {usagePercent}%）。");
+        explanation.Add(Loc.T(
+            "autotune.result",
+            context,
+            (estimatedKv / GiB).ToString("F2"),
+            gpuLayers,
+            (estimatedTotal / GiB).ToString("F2"),
+            (totalVram / GiB).ToString("F1"),
+            (estimatedTotal * 100.0 / totalVram).ToString("F0"),
+            usagePercent));
 
         if (context < trainedContext)
         {
             var reason = context == desiredContext
-                ? $"该模型训练上下文为 {trainedContext}，这里按保守的目标上下文 {context} 配置（不是显存不够，而是刻意留余量）"
-                : $"该模型训练上下文为 {trainedContext}，目标上下文放不下，已收敛到 {context}";
+                ? Loc.T("autotune.reasonTarget", trainedContext, context)
+                : Loc.T("autotune.reasonShrunk", trainedContext, context);
 
-            explanation.Add(
-                reason +
-                "。需要更长上下文时：把「设置 → 资源 → 自动调参的目标上下文」调大，" +
-                "或用 --cache-type-k q8_0 与 --cache-type-v q8_0 把 KV 压到约一半（同样显存约可支持 2 倍上下文），" +
-                "或勾选 --no-kv-offload 把 KV cache 放到内存。");
+            explanation.Add(reason + Loc.T("autotune.longContextHint"));
         }
 
         return new AutoTuneResult
@@ -263,21 +263,21 @@ public static class ModelAutoTuner
 
         if (metadata.BlockCount is { } layers)
         {
-            parts.Add($"{layers} 层");
+            parts.Add(Loc.T("autotune.meta.layers", layers));
         }
 
         if (metadata.EffectiveHeadCountKv is { } kvHeads)
         {
-            parts.Add($"{kvHeads} 个 KV 头");
+            parts.Add(Loc.T("autotune.meta.kvHeads", kvHeads));
         }
 
         if (metadata.ContextLength is { } trained)
         {
-            parts.Add($"训练上下文 {trained}");
+            parts.Add(Loc.T("autotune.meta.trainedContext", trained));
         }
 
-        parts.Add($"权重 {metadata.FileSizeBytes / GiB:F2} GiB");
-        explanation.Add("模型元数据：" + string.Join(" · ", parts) + "。");
+        parts.Add(Loc.T("autotune.meta.weights", (metadata.FileSizeBytes / GiB).ToString("F2")));
+        explanation.Add(Loc.T("autotune.modelMetadata", string.Join(" · ", parts)));
     }
 
     private static int PickNiceContext(int affordable, int trainedContext, List<string> warnings)
@@ -285,7 +285,7 @@ public static class ModelAutoTuner
         var ceiling = Math.Min(affordable, trainedContext);
         if (ceiling < MinimumContext)
         {
-            warnings.Add($"按当前显存只能容纳约 {Math.Max(ceiling, 0)} token 的上下文，已使用最小值 {MinimumContext}。");
+            warnings.Add(Loc.T("autotune.warn.contextFloor", Math.Max(ceiling, 0), MinimumContext));
             return MinimumContext;
         }
 

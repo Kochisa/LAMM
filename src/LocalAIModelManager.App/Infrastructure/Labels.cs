@@ -3,34 +3,34 @@ using LocalAIModelManager.Core.Models;
 
 namespace LocalAIModelManager.App.Infrastructure;
 
-/// <summary>Human readable Chinese labels for the core enums.</summary>
+/// <summary>Human readable labels for the core enums, localized on every access.</summary>
 public static class Labels
 {
     public static string ModelState(ModelState state) => state switch
     {
-        LocalAIModelManager.Core.Models.ModelState.Standby => "待机",
-        LocalAIModelManager.Core.Models.ModelState.Starting => "启动中",
-        LocalAIModelManager.Core.Models.ModelState.Loading => "加载中",
-        LocalAIModelManager.Core.Models.ModelState.Ready => "就绪",
-        LocalAIModelManager.Core.Models.ModelState.Stopping => "停止中",
-        LocalAIModelManager.Core.Models.ModelState.Failed => "失败",
+        LocalAIModelManager.Core.Models.ModelState.Standby => Loc.T("label.state.standby"),
+        LocalAIModelManager.Core.Models.ModelState.Starting => Loc.T("label.state.starting"),
+        LocalAIModelManager.Core.Models.ModelState.Loading => Loc.T("label.state.loading"),
+        LocalAIModelManager.Core.Models.ModelState.Ready => Loc.T("label.state.ready"),
+        LocalAIModelManager.Core.Models.ModelState.Stopping => Loc.T("label.state.stopping"),
+        LocalAIModelManager.Core.Models.ModelState.Failed => Loc.T("label.state.failed"),
         _ => state.ToString(),
     };
 
     public static string StopMode(BackendStopMode mode) => mode switch
     {
-        BackendStopMode.Graceful => "优雅退出",
-        BackendStopMode.ForcedKill => "强制结束",
-        BackendStopMode.Crashed => "异常退出",
-        _ => "—",
+        BackendStopMode.Graceful => Loc.T("label.stop.graceful"),
+        BackendStopMode.ForcedKill => Loc.T("label.stop.forced"),
+        BackendStopMode.Crashed => Loc.T("label.stop.crashed"),
+        _ => Loc.T("label.stop.none"),
     };
 
     public static string ParameterKindLabel(ParameterKind kind) => kind switch
     {
-        Core.Backends.ParameterKind.Integer => "整数",
-        Core.Backends.ParameterKind.Float => "小数",
-        Core.Backends.ParameterKind.Boolean => "开关",
-        Core.Backends.ParameterKind.Enum => "枚举",
-        _ => "文本",
+        Core.Backends.ParameterKind.Integer => Loc.T("label.kind.integer"),
+        Core.Backends.ParameterKind.Float => Loc.T("label.kind.float"),
+        Core.Backends.ParameterKind.Boolean => Loc.T("label.kind.boolean"),
+        Core.Backends.ParameterKind.Enum => Loc.T("label.kind.enum"),
+        _ => Loc.T("label.kind.text"),
     };
 }

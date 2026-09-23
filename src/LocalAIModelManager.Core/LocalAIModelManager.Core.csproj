@@ -10,4 +10,22 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- Loc / Localizer are used from every layer, so they are globally imported. -->
+  <ItemGroup>
+    <Using Include="LocalAIModelManager.Core.Localization" />
+  </ItemGroup>
+
+  <!--
+    Localization dictionaries travel inside the assembly so nothing has to be copied.
+
+    WithCulture="false" is essential: MSBuild's AssignCulture task infers a culture from
+    any file name that looks like name.<culture>.ext, so "strings.ja-JP.json" would be
+    turned into a ja-JP satellite assembly (and dropped entirely because
+    SatelliteResourceLanguages is pinned to "en"). With the culture suppressed the four
+    dictionaries are embedded into the main assembly, which is what Localizer reads.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\strings.*.json" WithCulture="false" />
+  </ItemGroup>
+
 </Project>

@@ -18,6 +18,7 @@ public sealed class SettingsService
         _current = _store.LoadOrCreate();
         _current.Normalize();
         _store.Save(_current);
+        Localizer.SetLanguage(_current.General.Language);
     }
 
     public string ConfigDirectory { get; }
@@ -64,6 +65,10 @@ public sealed class SettingsService
             _store.Save(snapshot);
         }
 
+        // The interface language is part of the settings, so applying it here keeps the
+        // UI and the log output in sync with whatever the user just saved.
+        Localizer.SetLanguage(snapshot.General.Language);
+
         Changed?.Invoke(snapshot);
     }
 
@@ -78,8 +83,33 @@ public sealed class SettingsService
             _store.Save(_current);
         }
 
+        Localizer.SetLanguage(loaded.General.Language);
         Changed?.Invoke(loaded);
     }
 
     public IReadOnlyList<ValidationIssue> Validate() => Current.Validate();
+
+    /// <summary>
+    /// Applies the interface language recorded on disk without building the settings
+    /// service and without writing anything.
+    ///
+    /// The headless command line (<c>--autotune</c>, <c>--show-command</c>) and the
+    /// "already running" dialog both produce text before a runtime exists, and that text
+    /// must already be in the user's language. <see cref="AppRuntime.Create"/> applies
+    /// the same value again later, where it is a no-op.
+    /// </summary>
+    public static void ApplyStoredLanguage(string configDirectory)
+    {
+        try
+        {
+            var store = new JsonFileStore<AppSettings>(AppPaths.SettingsFile(configDirectory));
+            var settings = store.Load();
+            settings.Normalize();
+            Localizer.SetLanguage(settings.General.Language);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Unreadable settings: keep the default language rather than failing to start.
+        }
+    }
 }

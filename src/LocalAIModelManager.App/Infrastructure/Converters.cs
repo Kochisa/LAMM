@@ -64,7 +64,7 @@ public sealed class BytesToHumanConverter : IValueConverter
     {
         if (value is null)
         {
-            return "—";
+            return Loc.T("label.value.none");
         }
 
         double bytes = value switch
@@ -101,7 +101,7 @@ public sealed class DurationToHumanConverter : IValueConverter
     {
         if (value is not TimeSpan span)
         {
-            return "—";
+            return Loc.T("label.value.none");
         }
 
         if (span.TotalHours >= 1)
@@ -128,7 +128,7 @@ public sealed class DateTimeToLocalConverter : IValueConverter
         {
             DateTimeOffset offset => offset.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
             DateTime time => time.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
-            _ => "—",
+            _ => Loc.T("label.value.none"),
         };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -156,7 +156,7 @@ public sealed class ModelStateToBrushConverter : IValueConverter
         Binding.DoNothing;
 }
 
-/// <summary>Turns booleans into a two-state label, e.g. 已启用/已禁用.</summary>
+/// <summary>Turns booleans into a two-state label, e.g. enabled/disabled.</summary>
 public sealed class BoolToTextConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

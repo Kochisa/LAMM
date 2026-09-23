@@ -111,13 +111,16 @@ public sealed class GatewayHost : IAsyncDisposable
 
         _application = app;
         StartedAtUtc = DateTimeOffset.UtcNow;
-        _logger.Info("gateway",
-            $"API gateway listening on http://{Options.Host}:{Options.Port} (api key {(Options.ApiKeyEnabled ? "enabled" : "disabled")}, " +
-            $"LAN {(Options.AllowLanAccess ? "enabled" : "disabled")}, LAN bind {(Options.IsLoopback ? "no" : "yes")})");
+        _logger.Info("gateway", Loc.T(
+            "log.gateway.started",
+            Options.Host,
+            Options.Port,
+            Loc.T(Options.ApiKeyEnabled ? "log.gateway.enabled" : "log.gateway.disabled"),
+            Loc.T(Options.AllowLanAccess ? "log.gateway.enabled" : "log.gateway.disabled")));
 
         if (!Options.IsLoopback && !Options.ApiKeyEnabled)
         {
-            _logger.Warn("gateway", "the gateway is bound to a non-loopback address without an API key");
+            _logger.Warn("gateway", Loc.T("log.gateway.lanWithoutKey"));
         }
     }
 
@@ -141,7 +144,7 @@ public sealed class GatewayHost : IAsyncDisposable
         {
             await app.DisposeAsync().ConfigureAwait(false);
             StartedAtUtc = null;
-            _logger.Info("gateway", "API gateway stopped");
+            _logger.Info("gateway", Loc.T("log.gateway.stopped"));
         }
     }
 
@@ -168,7 +171,7 @@ public sealed class GatewayHost : IAsyncDisposable
             catch (Exception ex)
             {
                 _lastError = ex.Message;
-                _logger.Error("gateway", $"unhandled error for {context.Request.Method} {context.Request.Path}", ex);
+                _logger.Error("gateway", Loc.T("log.gateway.unhandledError", context.Request.Method, context.Request.Path), ex);
                 if (!context.Response.HasStarted)
                 {
                     await WriteErrorAsync(
@@ -202,8 +205,11 @@ public sealed class GatewayHost : IAsyncDisposable
             if (!ApiKeyGenerator.FixedTimeEquals(provided, Options.ApiKey))
             {
                 context.Response.Headers.WWWAuthenticate = "Bearer";
-                _logger.Warn("gateway",
-                    $"rejected unauthenticated request for {context.Request.Method} {context.Request.Path} from {context.Connection.RemoteIpAddress}");
+                _logger.Warn("gateway", Loc.T(
+                    "log.gateway.unauthorized",
+                    context.Request.Method,
+                    context.Request.Path.Value,
+                    context.Connection.RemoteIpAddress));
                 await WriteErrorAsync(
                     context,
                     401,
@@ -390,8 +396,10 @@ public sealed class GatewayHost : IAsyncDisposable
                 return;
             }
 
-            _logger.Info("gateway",
-                $"{(streamRequested ? "streaming " : string.Empty)}request for model '{model.Id}' ({body.Length}B)");
+            _logger.Info("gateway", Loc.T(
+                streamRequested ? "log.gateway.streamingRequest" : "log.gateway.request",
+                model.Id,
+                body.Length));
 
             ModelLease lease;
             try
@@ -422,8 +430,7 @@ public sealed class GatewayHost : IAsyncDisposable
                 status = await ProxyAsync(context, lease, upstreamPath, body).ConfigureAwait(false);
             }
 
-            _logger.Info("gateway",
-                $"model '{model.Id}' responded {status} in {started.ElapsedMilliseconds}ms");
+            _logger.Info("gateway", Loc.T("log.gateway.responded", model.Id, status, started.ElapsedMilliseconds));
         }
         finally
         {
@@ -432,8 +439,13 @@ public sealed class GatewayHost : IAsyncDisposable
 
             if (modelId is not null)
             {
-                _logger.Debug("gateway",
-                    $"completed {context.Request.Method} {context.Request.Path} model='{modelId}' status={status} in {started.ElapsedMilliseconds}ms");
+                _logger.Debug("gateway", Loc.T(
+                    "log.gateway.completed",
+                    context.Request.Method,
+                    context.Request.Path,
+                    modelId,
+                    status,
+                    started.ElapsedMilliseconds));
             }
         }
     }
@@ -523,7 +535,7 @@ public sealed class GatewayHost : IAsyncDisposable
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
-                _logger.Debug("gateway", $"client disconnected while streaming model '{lease.ModelId}'");
+                _logger.Debug("gateway", Loc.T("log.gateway.clientDisconnected", lease.ModelId));
                 return context.Response.StatusCode;
             }
 

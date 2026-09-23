@@ -15,7 +15,7 @@ public sealed record EndpointRow(string Method, string Path, string Description,
 /// </summary>
 public sealed class ApiIntegrationViewModel : PageViewModelBase
 {
-    private const string Prompt = "你好，请用一句话介绍你自己。";
+    private static string Prompt => Loc.T("api.example.prompt");
 
     private bool _revealed;
     private string? _selectedModelId;
@@ -26,20 +26,19 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
     {
         ToggleRevealCommand = new RelayCommand(_ => Revealed = !Revealed);
         RegenerateKeyCommand = new AsyncRelayCommand(RegenerateKeyAsync, () => !IsBusy);
-        CopyBaseUrlCommand = new RelayCommand(_ => Copy(BaseUrl, "Base URL"));
-        CopyApiKeyCommand = new RelayCommand(_ => Copy(ApiKey, "API 密钥"));
-        CopyModelIdCommand = new RelayCommand(_ => Copy(SelectedModelId ?? string.Empty, "模型 ID"));
-        CopyPythonCommand = new RelayCommand(_ => Copy(PythonExample, "Python 示例"));
-        CopyPythonRawCommand = new RelayCommand(_ => Copy(PythonRawExample, "Python streaming 示例"));
-        CopyCurlCommand = new RelayCommand(_ => Copy(CurlExample, "curl 示例"));
-        CopyPowerShellCommand = new RelayCommand(_ => Copy(PowerShellExample, "PowerShell 示例"));
+        CopyBaseUrlCommand = new RelayCommand(_ => Copy(BaseUrl, Loc.T("api.copyN.baseUrl")));
+        CopyApiKeyCommand = new RelayCommand(_ => Copy(ApiKey, Loc.T("api.copyN.apiKey")));
+        CopyModelIdCommand = new RelayCommand(_ => Copy(SelectedModelId ?? string.Empty, Loc.T("api.copyN.modelId")));
+        CopyPythonCommand = new RelayCommand(_ => Copy(PythonExample, Loc.T("api.copyN.python")));
+        CopyPythonRawCommand = new RelayCommand(_ => Copy(PythonRawExample, Loc.T("api.copyN.pythonRaw")));
+        CopyCurlCommand = new RelayCommand(_ => Copy(CurlExample, Loc.T("api.copyN.curl")));
+        CopyPowerShellCommand = new RelayCommand(_ => Copy(PowerShellExample, Loc.T("api.copyN.powershell")));
         RefreshCommand = new RelayCommand(_ => Rebuild());
     }
 
-    public override string Title => "API 集成";
+    public override string Title => Loc.T("page.apiIntegration.title");
 
-    public override string Description =>
-        "当前生效的接入信息与可复制示例。所有示例都根据当前设置与所选模型实时生成。";
+    public override string Description => Loc.T("page.apiIntegration.desc");
 
     public ObservableCollection<string> ModelIds { get; } = new();
 
@@ -87,7 +86,7 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         {
             if (!Services.Current.Api.ApiKeyEnabled)
             {
-                return "（鉴权已关闭）";
+                return Loc.T("api.key.disabled");
             }
 
             return Revealed ? ApiKey : ApiKeyGenerator.Mask(ApiKey);
@@ -95,14 +94,14 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
     }
 
     public string GatewayStateText => Services.Gateway.IsRunning
-        ? $"运行中 · {Services.Gateway.BaseUrl}"
-        : "已停止";
+        ? Loc.T("api.state.running", Services.Gateway.BaseUrl)
+        : Loc.T("status.value.stopped");
 
     public string GatewayStateTone => Services.Gateway.IsRunning ? "ok" : "error";
 
     public string BindingText => Services.Current.Api.AllowLanAccess
-        ? "已允许局域网访问（引擎内部端口仍只绑定 127.0.0.1）"
-        : "仅本机可访问（127.0.0.1）";
+        ? Loc.T("api.exposure.lan")
+        : Loc.T("api.exposure.local");
 
     public string ModelForExamples =>
         string.IsNullOrWhiteSpace(SelectedModelId) ? "<MODEL_ID>" : SelectedModelId!;
@@ -155,39 +154,39 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         OnPropertyChanged(nameof(ModelForExamples));
 
         Endpoints.Clear();
-        Endpoints.Add(new EndpointRow("GET", "/v1/models", "列出所有已注册模型（含加载状态）", Required()));
-        Endpoints.Add(new EndpointRow("GET", "/v1/models/{id}", "查询单个模型的详细信息", Required()));
-        Endpoints.Add(new EndpointRow("POST", "/v1/chat/completions", "对话补全，支持 stream=true 的 SSE 流式输出", Required()));
-        Endpoints.Add(new EndpointRow("POST", "/v1/completions", "文本补全（透传到引擎）", Required()));
-        Endpoints.Add(new EndpointRow("POST", "/v1/embeddings", "向量化（需引擎支持 --embedding）", Required()));
-        Endpoints.Add(new EndpointRow("GET", "/v1/internal/status", "管理器运行状态 JSON", Required()));
-        Endpoints.Add(new EndpointRow("GET", "/health", "健康检查（无需鉴权）", "无"));
+        Endpoints.Add(new EndpointRow("GET", "/v1/models", Loc.T("api.endpoint.models"), Required()));
+        Endpoints.Add(new EndpointRow("GET", "/v1/models/{id}", Loc.T("api.endpoint.modelById"), Required()));
+        Endpoints.Add(new EndpointRow("POST", "/v1/chat/completions", Loc.T("api.endpoint.chat"), Required()));
+        Endpoints.Add(new EndpointRow("POST", "/v1/completions", Loc.T("api.endpoint.completions"), Required()));
+        Endpoints.Add(new EndpointRow("POST", "/v1/embeddings", Loc.T("api.endpoint.embeddings"), Required()));
+        Endpoints.Add(new EndpointRow("GET", "/v1/internal/status", Loc.T("api.endpoint.status"), Required()));
+        Endpoints.Add(new EndpointRow("GET", "/health", Loc.T("api.endpoint.health"), Loc.T("api.auth.none")));
 
         Warnings.Clear();
         if (!Services.Current.Api.ApiKeyEnabled)
         {
-            Warnings.Add("API 密钥已关闭：任何能访问该端口的主机都可以直接调用模型。");
+            Warnings.Add(Loc.T("api.warn.noKey"));
         }
 
         if (Services.Current.Api.AllowLanAccess)
         {
-            Warnings.Add("已开启局域网访问：请确认防火墙规则与密钥强度。");
+            Warnings.Add(Loc.T("api.warn.lan"));
         }
 
         if (Services.Models.Count == 0)
         {
-            Warnings.Add("尚未注册任何模型：请先在“模型”页面添加模型，否则请求会返回 404。");
+            Warnings.Add(Loc.T("api.warn.noModels"));
         }
 
         if (!Services.Gateway.IsRunning)
         {
-            Warnings.Add("API 网关当前未运行：请在“API”设置页保存后重启网关。");
+            Warnings.Add(Loc.T("api.warn.gatewayDown"));
         }
 
         RaiseAllPropertiesChanged();
     }
 
-    private string Required() => Services.Current.Api.ApiKeyEnabled ? "Authorization: Bearer <API_KEY>" : "无（鉴权已关闭）";
+    private string Required() => Services.Current.Api.ApiKeyEnabled ? Loc.T("api.auth.required") : Loc.T("api.auth.none");
 
     private string BuildPython()
     {
@@ -201,11 +200,11 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         builder.AppendLine($"    api_key=\"{key}\",");
         builder.AppendLine(")");
         builder.AppendLine();
-        builder.AppendLine("# 列出所有已注册模型（不会触发加载）");
+        builder.AppendLine(Loc.T("api.example.python.listModels"));
         builder.AppendLine("for model in client.models.list().data:");
         builder.AppendLine("    print(model.id)");
         builder.AppendLine();
-        builder.AppendLine("# 首次请求会自动启动引擎并加载模型，随后按 SSE 流式返回");
+        builder.AppendLine(Loc.T("api.example.python.firstRequest"));
         builder.AppendLine("stream = client.chat.completions.create(");
         builder.AppendLine($"    model=\"{ModelForExamples}\",");
         builder.AppendLine($"    messages=[{{\"role\": \"user\", \"content\": \"{Prompt}\"}}],");
@@ -231,7 +230,7 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         headers.Append('}');
 
         return $$"""
-            # 不依赖任何 SDK：直接发 HTTP 并逐块读取 SSE
+            {{Loc.T("api.example.pythonRaw.header")}}
             import json
             import requests
 
@@ -263,10 +262,10 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
     {
         var key = Services.Current.Api.ApiKeyEnabled ? ApiKey : "not-needed";
         return $$"""
-            # 1) 列出模型
+            {{Loc.T("api.example.curl.listModels")}}
             curl {{BaseUrl}}/models -H "Authorization: Bearer {{key}}"
 
-            # 2) 对话补全（curl 7.68+ 会逐块刷新，可直接看到流式输出）
+            {{Loc.T("api.example.curl.chat")}}
             curl -N {{BaseUrl}}/chat/completions \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer {{key}}" \
@@ -286,11 +285,11 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         headerLines.Append(" }");
 
         return $$"""
-            # 1) 列出模型
+            {{Loc.T("api.example.powershell.listModels")}}
             {{headerLines}}
             Invoke-RestMethod -Uri "{{BaseUrl}}/models" -Headers $headers | ConvertTo-Json -Depth 6
 
-            # 2) 对话补全（非流式）
+            {{Loc.T("api.example.powershell.chat")}}
             $body = @{
                 model    = "{{ModelForExamples}}"
                 messages = @(@{ role = "user"; content = "{{Prompt}}" })
@@ -300,7 +299,7 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
             Invoke-RestMethod -Uri "{{BaseUrl}}/chat/completions" -Method Post -Headers $headers -Body $body |
                 ConvertTo-Json -Depth 8
 
-            # 3) 流式：PowerShell 7+ 建议使用 System.Net.Http 逐行读取 SSE
+            {{Loc.T("api.example.powershell.streaming")}}
             """;
     }
 
@@ -308,13 +307,13 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
     {
         if (ClipboardHelper.SetText(text))
         {
-            SetStatus($"已复制{what}。");
+            SetStatus(Loc.T("api.status.copied", what));
         }
     }
 
     private async Task RegenerateKeyAsync()
     {
-        if (!Services.Dialogs.Confirm("重新生成 API 密钥", "重新生成后，所有已配置旧密钥的客户端都会立即失效。继续吗？"))
+        if (!Services.Dialogs.Confirm(Loc.T("api.regenerate.title"), Loc.T("api.regenerate.confirm")))
         {
             return;
         }
@@ -322,8 +321,8 @@ public sealed class ApiIntegrationViewModel : PageViewModelBase
         Services.SaveSettings(s => s.Api.ApiKey = ApiKeyGenerator.Create());
         Services.Logs.Redactor.RegisterSecret(Services.Current.Api.ApiKey);
         Revealed = true;
-        SetStatus("已生成新的 API 密钥。");
-        Services.Notify("API 密钥已重新生成。");
+        SetStatus(Loc.T("api.status.keyRegenerated"));
+        Services.Notify(Loc.T("api.notify.keyRegenerated"));
         await Task.CompletedTask.ConfigureAwait(true);
     }
 }

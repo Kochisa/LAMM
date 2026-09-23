@@ -74,10 +74,9 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
         Services.Logs.EntryAdded += OnEntryAdded;
     }
 
-    public override string Title => "运行日志";
+    public override string Title => Loc.T("page.runtimeLogs.title");
 
-    public override string Description =>
-        "内存日志（默认不写磁盘）。默认不记录 API 密钥、鉴权头、完整提示词与输出。";
+    public override string Description => Loc.T("page.runtimeLogs.desc");
 
     public ObservableCollection<LogRowViewModel> Entries { get; } = new();
 
@@ -120,8 +119,7 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
     }
 
     public string Statistics =>
-        $"缓冲 {Services.Logs.Count} / {Services.Logs.Capacity} 条；累计写入 {Services.Logs.TotalWritten} 条；" +
-        $"覆盖 {Services.Logs.DroppedCount} 条；显示 {Entries.Count} 条";
+        Loc.T("logs.stats", Services.Logs.Count, Services.Logs.Capacity, Services.Logs.TotalWritten, Services.Logs.DroppedCount, Entries.Count);
 
     public ICommand ClearCommand { get; }
 
@@ -242,7 +240,7 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
             _pending.Clear();
         }
 
-        SetStatus("已清空内存日志缓冲区。");
+        SetStatus(Loc.T("logs.status.cleared"));
         OnPropertyChanged(nameof(Statistics));
     }
 
@@ -256,7 +254,7 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
 
         if (ClipboardHelper.SetText(builder.ToString()))
         {
-            SetStatus($"已复制 {Entries.Count} 条日志到剪贴板。");
+            SetStatus(Loc.T("logs.status.copied", Entries.Count));
         }
     }
 
@@ -264,15 +262,15 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
     {
         LoggingPaused = !LoggingPaused;
         Services.Logs.IsPaused = LoggingPaused;
-        SetStatus(LoggingPaused ? "日志捕获已暂停（仍会继续计数）。" : "日志捕获已恢复。");
+        SetStatus(LoggingPaused ? Loc.T("logs.status.paused") : Loc.T("logs.status.resumed"));
     }
 
     private async Task SaveAsync()
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "保存日志快照",
-            Filter = "日志文件 (*.log)|*.log|文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+            Title = Loc.T("logs.saveDialog.title"),
+            Filter = Loc.T("logs.saveDialog.filter"),
             FileName = $"lamm-log-{DateTime.Now:yyyyMMdd-HHmmss}.log",
             InitialDirectory = Services.ConfigDirectory,
             AddExtension = true,
@@ -289,7 +287,7 @@ public sealed class RuntimeLogsViewModel : PageViewModelBase
                 .SaveToFileAsync(dialog.FileName, string.IsNullOrWhiteSpace(_searchText) ? null : _searchText, _minimumLevel)
                 .ConfigureAwait(true);
 
-            SetStatus($"已保存 {written} 条日志到 {dialog.FileName}");
-        }, "正在保存日志…").ConfigureAwait(true);
+            SetStatus(Loc.T("logs.status.saved", written, dialog.FileName));
+        }, Loc.T("logs.busy.saving")).ConfigureAwait(true);
     }
 }

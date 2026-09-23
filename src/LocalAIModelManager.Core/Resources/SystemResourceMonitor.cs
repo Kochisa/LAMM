@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Logging;
 
 namespace LocalAIModelManager.Core.Resources;
@@ -225,7 +226,7 @@ public sealed class SystemResourceMonitor : IResourceMonitor
         }
         catch (Exception ex)
         {
-            _logger.Warn("resources", "resource monitor loop stopped unexpectedly", ex);
+            _logger.Warn("resources", Loc.T("log.resources.monitorStopped"), ex);
         }
     }
 

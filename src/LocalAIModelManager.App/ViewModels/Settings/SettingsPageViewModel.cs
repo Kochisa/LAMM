@@ -30,6 +30,8 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         ResetCommand = new RelayCommand(_ => Load(force: true));
     }
 
+    // Built on each access through the section's Loc.T(...) keys: the shell keeps this
+    // page view model alive across a language switch, so a cached string would freeze.
     public override string Title => _section.Title;
 
     public override string Description => _section.Description;
@@ -65,7 +67,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
     public override Task RefreshAsync()
     {
         // Deliberately does not reload the fields: unsaved edits must survive a
-        // page switch. The user can press "重新载入" to discard them.
+        // page switch. The user can press "Reload" to discard them.
         RefreshNotes();
         return Task.CompletedTask;
     }
@@ -75,8 +77,8 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         // Saving can fail for reasons the user must see, e.g. the startup registry
         // key being denied. Never swallow it.
         SetError(exception.Message);
-        Services.Logs.Error("ui", $"保存“{Title}”设置失败：{exception.Message}", exception);
-        Services.Dialogs.ShowError($"保存“{Title}”设置", exception.Message);
+        Services.Logs.Error("ui", Loc.T("log.ui.saveFailed", Title, exception.Message), exception);
+        Services.Dialogs.ShowError(Loc.T("settings.saveError.title", Title), exception.Message);
     }
 
     private void Load(bool force)
@@ -99,7 +101,7 @@ public sealed class SettingsPageViewModel : PageViewModelBase
 
         _loaded = true;
         SavedAt = null;
-        SetStatus(force ? "已重新载入当前配置。" : string.Empty);
+        SetStatus(force ? Loc.T("settings.status.reloaded") : string.Empty);
         RefreshNotes();
     }
 
@@ -124,13 +126,13 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         {
             if (!field.ApplyTo(candidate) && field.HasValidationError)
             {
-                invalid.Add($"{field.Label}：{field.ValidationError}");
+                invalid.Add(Loc.T("settings.error.fieldInvalid", field.Label, field.ValidationError));
             }
         }
 
         if (invalid.Count > 0)
         {
-            SetError("存在无效输入：" + string.Join("；", invalid));
+            SetError(Loc.T("settings.error.invalid", string.Join(Loc.T("common.listSeparator"), invalid)));
             return;
         }
 
@@ -152,13 +154,13 @@ public sealed class SettingsPageViewModel : PageViewModelBase
         }
 
         SavedAt = DateTimeOffset.Now.ToString("HH:mm:ss");
-        SetStatus("设置已保存。");
-        Services.Notify($"“{Title}”设置已保存。");
+        SetStatus(Loc.T("settings.status.saved"));
+        Services.Notify(Loc.T("settings.notify.saved", Title));
 
         if (_section.RequiresGatewayRestart && Services.Gateway.IsRunning)
         {
             Services.RequestGatewayRestart();
-            SetStatus("设置已保存。API 网关需要重启后才能生效。");
+            SetStatus(Loc.T("settings.status.savedRestart"));
         }
 
         RefreshNotes();

@@ -1,4 +1,5 @@
 using LocalAIModelManager.Core.Configuration;
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Models;
 using LocalAIModelManager.Core.Resources;
 
@@ -61,10 +62,10 @@ public sealed record EngineStatusInfo
 
     public string GpuDevicesText => HasGpuDevice switch
     {
-        true when AvailableDevices.Count > 0 => string.Join("；", AvailableDevices),
-        true => "已检测到 GPU 设备",
-        false => "未检测到任何 GPU 设备（将回退到 CPU）",
-        _ => "未知（该构建不支持 --list-devices）",
+        true when AvailableDevices.Count > 0 => string.Join("; ", AvailableDevices),
+        true => Loc.T("status.gpuDevices.detected"),
+        false => Loc.T("status.gpuDevices.none"),
+        _ => Loc.T("status.gpuDevices.unknown"),
     };
 }
 

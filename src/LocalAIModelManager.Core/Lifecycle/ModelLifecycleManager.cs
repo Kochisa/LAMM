@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using LocalAIModelManager.Core.Backends;
 using LocalAIModelManager.Core.Configuration;
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Logging;
 using LocalAIModelManager.Core.Models;
 using LocalAIModelManager.Core.Processes;
@@ -157,7 +158,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
     public async Task<bool> StartAsync(string modelId, CancellationToken cancellationToken)
     {
         using var lease = await AcquireAsync(modelId, cancellationToken).ConfigureAwait(false);
-        _logger.Info("lifecycle", $"model '{modelId}' started manually and is ready on port {lease.Port}");
+        _logger.Info("lifecycle", Loc.T("log.lifecycle.startedManual", modelId, lease.Port));
         return true;
     }
 
@@ -332,7 +333,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
         if (candidates.Count > 0)
         {
-            _logger.Info("lifecycle", $"idle unload released {candidates.Count} model(s): {string.Join(", ", candidates)}");
+            _logger.Info("lifecycle", Loc.T("log.lifecycle.idleReleased", candidates.Count, string.Join(", ", candidates)));
         }
 
         return candidates;
@@ -391,7 +392,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         }
         catch (Exception ex)
         {
-            _logger.Warn("lifecycle", "error while unloading models during shutdown", ex);
+            _logger.Warn("lifecycle", Loc.T("log.lifecycle.shutdownUnloadFailed"), ex);
         }
 
         foreach (var slot in _slots.Values)
@@ -417,7 +418,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         }
         catch (Exception ex)
         {
-            _logger.Error("lifecycle", "the idle unload loop stopped unexpectedly", ex);
+            _logger.Error("lifecycle", Loc.T("log.lifecycle.idleLoopStopped"), ex);
         }
     }
 
@@ -463,7 +464,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
             foreach (var warning in plan.Warnings)
             {
-                _logger.Warn("lifecycle", $"model '{model.Id}': {warning}");
+                _logger.Warn("lifecycle", Loc.T("log.lifecycle.launchWarning", model.Id, warning));
             }
 
             var problems = adapter.ValidateLaunch(plan, capabilities);
@@ -476,8 +477,8 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             slot.LaunchWarning = DetectGpuMismatch(model, engine, capabilities, parameters);
 
             SetState(slot, model.Id, ModelState.Loading, $"loading on port {port}");
-            _logger.Info("lifecycle", $"loading model '{model.Id}' with engine '{engine.Name}' on {plan.BindHost}:{port}");
-            _logger.Info("lifecycle", $"launch: {plan.CommandLine}");
+            _logger.Info("lifecycle", Loc.T("log.lifecycle.loading", model.Id, engine.Name, plan.BindHost, port));
+            _logger.Info("lifecycle", Loc.T("log.lifecycle.launch", plan.CommandLine));
 
             var settings = _settings.Current;
             process = adapter.StartProcess(plan, new BackendProcessContext
@@ -504,17 +505,19 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             slot.LastStopMode = BackendStopMode.None;
             SetState(slot, model.Id, ModelState.Ready, $"ready in {ready.Elapsed.TotalSeconds:0.0}s");
 
-            _logger.Info("lifecycle",
-                $"model '{model.Id}' is READY (pid={process.Pid}, port={port}, load time {ready.Elapsed.TotalSeconds:0.0}s)");
+            _logger.Info("lifecycle", Loc.T(
+                "log.lifecycle.ready",
+                model.Id,
+                process.Pid,
+                port,
+                ready.Elapsed.TotalSeconds.ToString("0.0")));
 
             slot.Ready?.TrySetResult(ready);
             ModelLoaded?.Invoke(this, model.Id);
 
             if (!effective.RequestsGpuOffload)
             {
-                _logger.Info("lifecycle",
-                    $"模型 '{model.Id}' 未配置 --n-gpu-layers：将完全按引擎自身默认运行（llama.cpp 默认 0，即纯 CPU）。" +
-                    "需要显卡就在模型参数里显式设置该值。");
+                _logger.Info("lifecycle", Loc.T("log.lifecycle.noGpuLayers", model.Id));
             }
 
             await WarnIfVramIsTightAsync(slot, model, process, parameters, cancellationToken).ConfigureAwait(false);
@@ -530,7 +533,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         }
         catch (Exception ex)
         {
-            var message = ex is ModelUnavailableException ? ex.Message : $"Failed to load model '{model.Id}': {ex.Message}";
+            var message = ex is ModelUnavailableException ? ex.Message : Loc.T("log.lifecycle.loadFailed", model.Id, ex.Message);
             _logger.Error("lifecycle", message, ex);
             slot.LastError = message;
             await CleanupAsync(model.Id, slot, process, port).ConfigureAwait(false);
@@ -551,7 +554,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             }
             catch (Exception ex)
             {
-                _logger.Warn("lifecycle", $"failed to stop the failed engine for model '{modelId}'", ex);
+                _logger.Warn("lifecycle", Loc.T("log.lifecycle.stopFailedEngineFailed", modelId), ex);
             }
 
             slot.LastStopMode = process.StopMode;
@@ -607,8 +610,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
         if (Volatile.Read(ref slot.ActiveRequests) > 0)
         {
-            _logger.Warn("lifecycle",
-                $"model '{modelId}' is being stopped with {slot.ActiveRequests} active request(s); those requests will fail.");
+            _logger.Warn("lifecycle", Loc.T("log.lifecycle.stopWithActive", modelId, slot.ActiveRequests));
         }
 
         if (process is not null)
@@ -629,7 +631,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
         slot.StartedUtc = null;
         SetState(slot, modelId, ModelState.Standby, reason);
-        _logger.Info("lifecycle", $"model '{modelId}' unloaded ({reason}); VRAM released");
+        _logger.Info("lifecycle", Loc.T("log.lifecycle.unloaded", modelId, reason));
         ModelUnloaded?.Invoke(this, modelId);
         return true;
     }
@@ -657,8 +659,10 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
             return;
         }
 
-        _logger.Warn("resources",
-            $"free VRAM {snapshot.PrimaryFreeBytes / (1024.0 * 1024.0):F0} MiB is below the {settings.Lifecycle.MinFreeVramMiB} MiB threshold; evicting idle models");
+        _logger.Warn("resources", Loc.T(
+            "log.resources.vramLow",
+            (snapshot.PrimaryFreeBytes.GetValueOrDefault() / (1024.0 * 1024.0)).ToString("F0"),
+            settings.Lifecycle.MinFreeVramMiB));
 
         await EvictUntilAsync(
             incomingModelId,
@@ -697,12 +701,11 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
                         $"The loaded-model limit ({_settings.Current.Lifecycle.MaxLoadedModels}) is reached and no idle model can be evicted.");
                 }
 
-                _logger.Warn("resources",
-                    "VRAM is low but no idle model can be evicted; attempting the load anyway");
+                _logger.Warn("resources", Loc.T("log.resources.noEvictable"));
                 return;
             }
 
-            _logger.Info("lifecycle", $"evicting model '{victim}' ({reason}, least recently used)");
+            _logger.Info("lifecycle", Loc.T("log.lifecycle.evicting", victim, reason));
             await StopInternalAsync(victim, $"evicted: {reason}", cancellationToken).ConfigureAwait(false);
 
             if (refreshResources)
@@ -862,13 +865,9 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         }
 
         parameters.TryGetValue("--n-gpu-layers", out var requested);
-        var message =
-            $"引擎 '{engine.Id}' 报告没有任何可用的 GPU 设备（llama-server --list-devices 返回空），" +
-            $"因此 '--n-gpu-layers {requested}' 会被忽略，模型将只能在 CPU 上运行。" +
-            "请确认该 llama.cpp 是 CUDA/Vulkan 版本，并且 CUDA 版本已把配套的 CUDA 运行时 DLL" +
-            "（cudart64_*.dll / cublas64_*.dll / cublasLt64_*.dll）解压到 llama-server.exe 同目录。";
+        var message = Loc.T("log.lifecycle.gpuMismatch", engine.Id, requested);
 
-        _logger.Warn("lifecycle", $"model '{model.Id}': {message}");
+        _logger.Warn("lifecycle", message);
         return message;
     }
 
@@ -911,14 +910,16 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
 
             var context = parameters.TryGetValue("--ctx-size", out var ctx)
                 ? $"--ctx-size = {ctx}"
-                : "未设置 --ctx-size（引擎会采用模型自身的训练上下文）";
+                : Loc.T("log.lifecycle.vramTightNoContext");
 
-            var message =
-                $"模型 '{model.Id}' 加载后占用了 {used.Value / GiB:F1} GiB 显存（约占显卡的 {ratio * 100:F0}%，" +
-                $"卡片共 {total.Value / GiB:F1} GiB；模型文件仅 {SafeFileSize(model) / GiB:F2} GiB）。当前 {context}。" +
-                "KV cache 是按上下文长度一次性预留的，通常远大于模型权重本身；" +
-                "若不需要长上下文，请调小 --ctx-size，或用 --cache-type-k / --cache-type-v 选 q8_0 压缩 KV cache，" +
-                "或勾选 --no-kv-offload 把 KV cache 放到内存。";
+            var message = Loc.T(
+                "log.lifecycle.vramTight",
+                model.Id,
+                (used.Value / GiB).ToString("F1"),
+                (ratio * 100).ToString("F0"),
+                (total.Value / GiB).ToString("F1"),
+                (SafeFileSize(model) / GiB).ToString("F2"),
+                context);
 
             _logger.Warn("resources", message);
             slot.LaunchWarning = slot.LaunchWarning is { Length: > 0 } previous
@@ -927,7 +928,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.Debug("resources", $"VRAM check after load failed for '{model.Id}': {ex.Message}");
+            _logger.Debug("resources", Loc.T("log.resources.vramCheckFailed", model.Id, ex.Message));
         }
     }
 

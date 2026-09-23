@@ -69,7 +69,7 @@ public sealed class DialogService : IDialogService
 
         string? result = null;
 
-        var ok = new Button { Content = "确定", Width = 88, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+        var ok = new Button { Content = Loc.T("common.ok"), Width = 88, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
         ok.Click += (_, _) =>
         {
             result = input.Text;
@@ -77,7 +77,7 @@ public sealed class DialogService : IDialogService
             window.Close();
         };
 
-        var cancel = new Button { Content = "取消", Width = 88, IsCancel = true };
+        var cancel = new Button { Content = Loc.T("common.cancel"), Width = 88, IsCancel = true };
         cancel.Click += (_, _) =>
         {
             window.DialogResult = false;

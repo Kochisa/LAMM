@@ -1,6 +1,7 @@
 <UserControl x:Class="LocalAIModelManager.App.Views.RuntimeLogsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:LocalAIModelManager.App.Infrastructure"
              xmlns:conv="clr-namespace:LocalAIModelManager.App.Infrastructure"
              mc:Ignorable="d"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -27,28 +28,28 @@
 
         <WrapPanel Grid.Row="1" Margin="0,0,0,10">
             <TextBox Width="240" Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Delay=250}"
-                     ToolTip="搜索消息、分类与异常堆栈" />
-            <TextBlock Text="级别" Style="{StaticResource KeyValue.Label}" Margin="12,0,8,0" />
+                     ToolTip="{loc:T logs.toolbar.searchHint}" />
+            <TextBlock Text="{loc:T logs.toolbar.level}" Style="{StaticResource KeyValue.Label}" Margin="12,0,8,0" />
             <ComboBox ItemsSource="{Binding Levels}" SelectedItem="{Binding MinimumLevel, Mode=TwoWay}" Width="130" />
-            <CheckBox Content="自动滚动" IsChecked="{Binding AutoScroll, Mode=TwoWay}" Margin="12,0,12,0" />
-            <Button Content="暂停捕获" Command="{Binding TogglePauseCommand}"
+            <CheckBox Content="{loc:T logs.toolbar.autoScroll}" IsChecked="{Binding AutoScroll, Mode=TwoWay}" Margin="12,0,12,0" />
+            <Button Content="{loc:T logs.toolbar.pause}" Command="{Binding TogglePauseCommand}"
                     Visibility="{Binding LoggingPaused, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-            <Button Content="恢复捕获" Command="{Binding TogglePauseCommand}"
+            <Button Content="{loc:T logs.toolbar.resume}" Command="{Binding TogglePauseCommand}"
                     Visibility="{Binding LoggingPaused, Converter={StaticResource BoolToVisibility}}" />
-            <Button Content="搜索" Command="{Binding SearchCommand}" />
-            <Button Content="清空" Style="{StaticResource Button.Danger}" Command="{Binding ClearCommand}" />
-            <Button Content="复制" Command="{Binding CopyCommand}" />
-            <Button Content="保存…" Style="{StaticResource Button.Primary}" Command="{Binding SaveCommand}" />
+            <Button Content="{loc:T common.search}" Command="{Binding SearchCommand}" />
+            <Button Content="{loc:T logs.toolbar.clear}" Style="{StaticResource Button.Danger}" Command="{Binding ClearCommand}" />
+            <Button Content="{loc:T logs.toolbar.copy}" Command="{Binding CopyCommand}" />
+            <Button Content="{loc:T logs.toolbar.save}" Style="{StaticResource Button.Primary}" Command="{Binding SaveCommand}" />
         </WrapPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6">
             <DataGrid x:Name="LogGrid" ItemsSource="{Binding Entries}" IsReadOnly="True" RowHeight="22"
                       HeadersVisibility="Column">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="100" />
-                    <DataGridTextColumn Header="级别" Binding="{Binding Level}" Width="90" />
-                    <DataGridTextColumn Header="分类" Binding="{Binding Category}" Width="150" />
-                    <DataGridTextColumn Header="消息" Binding="{Binding Message}" Width="*" />
+                    <DataGridTextColumn Header="{loc:T logs.column.time}" Binding="{Binding Time}" Width="100" />
+                    <DataGridTextColumn Header="{loc:T logs.column.level}" Binding="{Binding Level}" Width="90" />
+                    <DataGridTextColumn Header="{loc:T logs.column.category}" Binding="{Binding Category}" Width="150" />
+                    <DataGridTextColumn Header="{loc:T logs.column.message}" Binding="{Binding Message}" Width="*" />
                 </DataGrid.Columns>
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow">
@@ -74,7 +75,7 @@
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Status.Ready}" Margin="0,4,0,0"
                        Visibility="{Binding StatusMessage, Converter={StaticResource EmptyToVisibility}}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0"
-                       Text="日志默认只驻留内存；只有点击“保存…”才会写入磁盘。API 密钥与鉴权头永远不会被记录。" />
+                       Text="{loc:T logs.footer}" />
         </StackPanel>
     </Grid>
 </UserControl>

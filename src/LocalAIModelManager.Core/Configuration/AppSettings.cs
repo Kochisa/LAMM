@@ -1,3 +1,4 @@
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Models;
 
 namespace LocalAIModelManager.Core.Configuration;
@@ -30,8 +31,8 @@ public sealed class GeneralSettings
     /// <summary>"Dark" or "Light".</summary>
     public string Theme { get; set; } = "Dark";
 
-    /// <summary>"zh-CN" or "en-US".</summary>
-    public string Language { get; set; } = "zh-CN";
+    /// <summary>Interface language: "zh-CN", "en-US", "ja-JP" or "fr-FR".</summary>
+    public string Language { get; set; } = Localizer.DefaultLanguage;
 
     /// <summary>Probe every engine with <c>--help</c> when the manager starts.</summary>
     public bool ProbeEnginesOnStartup { get; set; } = true;
@@ -39,7 +40,7 @@ public sealed class GeneralSettings
     public void Normalize()
     {
         Theme = string.Equals(Theme, "Light", StringComparison.OrdinalIgnoreCase) ? "Light" : "Dark";
-        Language = string.IsNullOrWhiteSpace(Language) ? "zh-CN" : Language.Trim();
+        Language = Localizer.Normalize(Language);
     }
 }
 
@@ -365,7 +366,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "API",
-                $"Bind address '{Api.Host}' is not loopback while LAN access is disabled. The address will be reset to {ApiSettings.Loopback}."));
+                Loc.T("validation.hostNotLoopback", Api.Host, ApiSettings.Loopback)));
         }
 
         if (Api.AllowLanAccess && !Api.ApiKeyEnabled && !Advanced.AllowLanWithoutApiKey)
@@ -373,7 +374,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Error,
                 "API",
-                "LAN access requires the API key to be enabled. Enable the API key or turn LAN access off."));
+                Loc.T("validation.lanWithoutKey")));
         }
 
         if (Api.AllowLanAccess && !Api.ApiKeyEnabled && Advanced.AllowLanWithoutApiKey)
@@ -381,7 +382,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "API",
-                "LAN access is enabled WITHOUT authentication. Any host on the network can use this gateway."));
+                Loc.T("validation.lanWithoutKeyWarning")));
         }
 
         if (Lifecycle.PreloadOnStartup)
@@ -389,7 +390,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "Lifecycle",
-                "Preloading models at startup is not supported; models always start in standby."));
+                Loc.T("validation.preloadUnsupported")));
         }
 
         if (Lifecycle.IdleTimeoutSeconds < 30)
@@ -397,7 +398,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "Lifecycle",
-                "An idle timeout below 30 seconds will thrash model loading."));
+                Loc.T("validation.idleTooShort")));
         }
 
         if (Advanced.LogToDisk)
@@ -405,7 +406,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Info,
                 "Advanced",
-                "Logs are memory-only by default; use Save on the Runtime Logs page to persist a snapshot."));
+                Loc.T("validation.logsMemoryOnly")));
         }
 
         if (Advanced.LogPromptContent)
@@ -413,7 +414,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "Advanced",
-                "Prompt/completion logging is enabled. User content will appear in the in-memory log buffer."));
+                Loc.T("validation.promptLoggingOn")));
         }
 
         if (Engines.Engines.Count == 0)
@@ -421,7 +422,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Info,
                 "Inference Engine",
-                "No inference engine registered yet. Add a llama-server executable to start serving models."));
+                Loc.T("validation.noEngines")));
         }
 
         foreach (var engine in Engines.Engines.Where(e => !e.ExecutableExists()))
@@ -429,7 +430,7 @@ public sealed class AppSettings
             issues.Add(new ValidationIssue(
                 ValidationSeverity.Warning,
                 "Inference Engine",
-                $"Engine '{engine.Id}' points at a missing executable: {engine.ExecutablePath}"));
+                Loc.T("validation.engineMissingExe", engine.Id, engine.ExecutablePath)));
         }
 
         return issues;

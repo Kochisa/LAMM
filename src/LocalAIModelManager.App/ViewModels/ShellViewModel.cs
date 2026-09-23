@@ -53,32 +53,36 @@ public sealed class NavigationGroupViewModel
 /// <summary>
 /// Shell view model: navigation, the main status bar and the gateway controls that
 /// are available from every page.
+///
+/// MainWindow.xaml binds to the string properties below and is NOT rebuilt when the
+/// language changes, so every string exposed to the window is computed on each get
+/// (never cached in a field) and a fresh OnPropertyChanged is raised for it from
+/// <see cref="OnLanguageChanged"/>.
 /// </summary>
-public sealed class ShellViewModel : ObservableObject
+public sealed class ShellViewModel : ObservableObject, IDisposable
 {
     private readonly AppServices _services;
     private readonly Dictionary<string, PageViewModelBase> _pageCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FrameworkElement> _viewCache = new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly Action<string> _languageChangedHandler;
+
     private NavigationItemViewModel? _selectedItem;
     private PageViewModelBase? _currentPage;
     private FrameworkElement? _currentView;
-    private string _statusText = "就绪";
+    private string _statusText = Loc.T("common.ready");
     private DateTimeOffset _statusTimestamp = DateTimeOffset.Now;
     private bool _isBusy;
+    private bool _disposed;
 
     public ShellViewModel(AppServices services)
     {
         _services = services;
 
-        foreach (var group in PageCatalog.Groups)
-        {
-            var items = PageCatalog.Pages
-                .Where(p => p.Group == group)
-                .Select(p => new NavigationItemViewModel(p));
+        _languageChangedHandler = OnLanguageChanged;
+        Localizer.LanguageChanged += _languageChangedHandler;
 
-            Groups.Add(new NavigationGroupViewModel(group, items));
-        }
+        BuildNavigation();
 
         NavigateCommand = new AsyncRelayCommand(
             parameter => NavigateAsync(parameter as NavigationItemViewModel),
@@ -93,7 +97,7 @@ public sealed class ShellViewModel : ObservableObject
         _services.Notification += message => UiDispatcher.Invoke(() => StatusText = message);
         _services.GatewayRestartRequired += () => UiDispatcher.Invoke(() =>
         {
-            StatusText = "API 设置已更改，正在按新设置重启网关…";
+            StatusText = Loc.T("log.gateway.restartNeeded");
             _ = RestartGatewayAsync();
         });
 
@@ -143,9 +147,12 @@ public sealed class ShellViewModel : ObservableObject
         private set => SetProperty(ref _isBusy, value);
     }
 
+    /// <summary>True while the API gateway is listening; bound by the status bar indicator.</summary>
+    public bool IsGatewayRunning => _services.Gateway.IsRunning;
+
     public string GatewayText => _services.Gateway.IsRunning
-        ? $"网关运行中 · {_services.Gateway.BaseUrl}"
-        : "网关已停止";
+        ? Loc.T("shell.gateway.running", _services.Gateway.BaseUrl)
+        : Loc.T("shell.gateway.stopped");
 
     public string LoadedModelsText
     {
@@ -153,7 +160,7 @@ public sealed class ShellViewModel : ObservableObject
         {
             var statuses = _services.Lifecycle.GetStatuses();
             var loaded = statuses.Count(s => s.IsLoaded);
-            return $"已加载 {loaded} / 共 {statuses.Count} 个模型";
+            return Loc.T("shell.modelsLoaded", loaded, statuses.Count);
         }
     }
 
@@ -164,13 +171,17 @@ public sealed class ShellViewModel : ObservableObject
             var engine = _services.SelectedEngine;
             if (engine is null)
             {
-                return "未配置推理引擎";
+                return Loc.T("shell.engine.none");
             }
 
             var capabilities = engine.ExecutableExists() ? _services.GetCapabilities(engine.Id) : null;
             return capabilities is null
-                ? $"引擎 {engine.Id}（不可用）"
-                : $"引擎 {engine.Id} · {capabilities.Version ?? "版本未知"} · {capabilities.Parameters.Count} 个参数";
+                ? Loc.T("shell.engine.unavailable", engine.Id)
+                : Loc.T(
+                    "shell.engine.summary",
+                    engine.Id,
+                    capabilities.Version ?? Loc.T("common.unknown"),
+                    capabilities.Parameters.Count);
         }
     }
 
@@ -256,6 +267,7 @@ public sealed class ShellViewModel : ObservableObject
     /// <summary>Refreshes the status bar indicators; called periodically by the shell.</summary>
     public void RefreshChrome()
     {
+        OnPropertyChanged(nameof(IsGatewayRunning));
         OnPropertyChanged(nameof(GatewayText));
         OnPropertyChanged(nameof(LoadedModelsText));
         OnPropertyChanged(nameof(EngineText));
@@ -281,12 +293,12 @@ public sealed class ShellViewModel : ObservableObject
         try
         {
             await _services.Runtime.RestartGatewayAsync().ConfigureAwait(true);
-            StatusText = $"网关已按当前设置重启：{_services.Gateway.BaseUrl}";
+            StatusText = Loc.T("shell.status.gatewayRestarted", _services.Gateway.BaseUrl);
         }
         catch (Exception ex)
         {
-            _services.Logs.Error("ui", "重启网关失败", ex);
-            StatusText = $"重启网关失败：{ex.Message}";
+            _services.Logs.Error("ui", Loc.T("log.ui.restartGatewayFailed"), ex);
+            StatusText = Loc.T("shell.status.restartFailed", ex.Message);
         }
         finally
         {
@@ -300,11 +312,11 @@ public sealed class ShellViewModel : ObservableObject
         try
         {
             await _services.Gateway.StartAsync().ConfigureAwait(true);
-            StatusText = $"网关已启动：{_services.Gateway.BaseUrl}";
+            StatusText = Loc.T("shell.status.gatewayStarted", _services.Gateway.BaseUrl);
         }
         catch (Exception ex)
         {
-            StatusText = $"启动网关失败：{ex.Message}";
+            StatusText = Loc.T("shell.status.startFailed", ex.Message);
         }
 
         RefreshChrome();
@@ -313,7 +325,7 @@ public sealed class ShellViewModel : ObservableObject
     private async Task StopGatewayAsync()
     {
         await _services.Gateway.StopAsync().ConfigureAwait(true);
-        StatusText = "网关已停止。";
+        StatusText = Loc.T("shell.status.gatewayStopped");
         RefreshChrome();
     }
 
@@ -330,7 +342,7 @@ public sealed class ShellViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"打开配置目录失败：{ex.Message}";
+            StatusText = Loc.T("shell.status.openConfigFolderFailed", ex.Message);
         }
     }
 
@@ -346,7 +358,94 @@ public sealed class ShellViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"打开链接失败：{ex.Message}";
+            StatusText = Loc.T("shell.status.openLinkFailed", ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Rebuilds everything the shell derived from the previous language: the navigation
+    /// catalog (group names and page titles), the page/view caches - which would
+    /// otherwise keep the old strings alive - and the window level status strings.
+    /// The currently selected page is re-created and re-activated so its own localized
+    /// strings, notes and field labels are rebuilt too.
+    /// </summary>
+    private void OnLanguageChanged(string language)
+    {
+        // Localizer.LanguageChanged is raised from inside the settings save, on the UI
+        // thread, and rebuilding would tear down the very page that is still running that
+        // command. Posting defers the rebuild to the next dispatcher turn, after the save
+        // has finished. A failure to rebuild must never take the application down.
+        UiDispatcher.Post(() =>
+        {
+            try
+            {
+                RebuildForLanguage();
+            }
+            catch (Exception ex)
+            {
+                _services.Logs.Warn("ui", Loc.T("shell.status.languageRebuildFailed"), ex);
+            }
+        });
+    }
+
+    private void RebuildForLanguage()
+    {
+        var selectedKey = _selectedItem?.Descriptor.Key;
+
+        BuildNavigation();
+
+        _pageCache.Clear();
+        _viewCache.Clear();
+        CurrentPage = null;
+        CurrentView = null;
+
+        var target = AllNavigationItems.FirstOrDefault(i => i.Descriptor.Key == selectedKey)
+                     ?? AllNavigationItems.FirstOrDefault();
+
+        if (target is not null)
+        {
+            _ = NavigateAsync(target);
+        }
+
+        RefreshChrome();
+        OnPropertyChanged(nameof(CurrentPageTitle));
+    }
+
+    /// <summary>Rebuilds the navigation groups from the (per-language) page catalog.</summary>
+    private void BuildNavigation()
+    {
+        var previous = _selectedItem?.Descriptor.Key;
+
+        Groups.Clear();
+        foreach (var group in PageCatalog.Groups)
+        {
+            var items = PageCatalog.Pages
+                .Where(p => p.Group == group)
+                .Select(p => new NavigationItemViewModel(p));
+
+            Groups.Add(new NavigationGroupViewModel(PageCatalog.GroupTitle(group), items));
+        }
+
+        // The old item instances are gone with the rebuilt groups, so re-point the
+        // selection at the fresh instance with the same page key.
+        _selectedItem = previous is null
+            ? null
+            : AllNavigationItems.FirstOrDefault(i => i.Descriptor.Key == previous);
+
+        if (_selectedItem is not null)
+        {
+            _selectedItem.IsSelected = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Localizer.LanguageChanged -= _languageChangedHandler;
     }
 }

@@ -116,7 +116,7 @@ public abstract class PageViewModelBase : Infrastructure.ObservableObject
         catch (Exception ex)
         {
             SetError(ex.Message);
-            Services.Notify($"操作失败：{ex.Message}");
+            Services.NotifyFailure(Loc.T("common.operationFailed", ex.Message));
             Services.Logs.Error("ui", $"{Title}: {ex.Message}", ex);
         }
         finally

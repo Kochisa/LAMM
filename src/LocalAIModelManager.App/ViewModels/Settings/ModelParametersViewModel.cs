@@ -39,8 +39,8 @@ public sealed class ParameterRowViewModel : ObservableObject
     public string KindLabel => Labels.ParameterKindLabel(Descriptor.Kind);
 
     public string SupportLabel => Descriptor.DetectedOnly
-        ? "该引擎新增参数"
-        : Supported ? "支持" : "该引擎不支持";
+        ? Loc.T("params.support.detected")
+        : Supported ? Loc.T("params.support.yes") : Loc.T("common.unsupported");
 
     public bool IsBoolean => Descriptor.Kind == ParameterKind.Boolean;
 
@@ -108,7 +108,7 @@ public sealed class ParameterGroupViewModel
 
     public ObservableCollection<ParameterRowViewModel> Rows { get; }
 
-    public string CountLabel => $"{Rows.Count} 项";
+    public string CountLabel => Loc.T("params.group.count", Rows.Count);
 }
 
 /// <summary>
@@ -131,11 +131,9 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         ProbeCommand = new AsyncRelayCommand(ProbeAsync, () => !IsBusy && SelectedEngine is not null);
     }
 
-    public override string Title => "模型参数";
+    public override string Title => Loc.T("page.settingsModelParameters.title");
 
-    public override string Description =>
-        "只暴露最常用的几项；其余 llama.cpp 参数写在“其他参数”里，一行一个。"
-        + "未勾选/留空的参数不会传给引擎——VRAM 由模型和引擎自身的默认值决定，而不是由本应用替你决定。";
+    public override string Description => Loc.T("page.settingsModelParameters.desc");
 
     public ObservableCollection<EngineOption> EngineOptions { get; } = new();
 
@@ -196,7 +194,7 @@ public sealed class ModelParametersViewModel : PageViewModelBase
 
         foreach (var engine in Services.Engines)
         {
-            EngineOptions.Add(new EngineOption(engine.Id, $"{engine.Name}（{engine.Id}）"));
+            EngineOptions.Add(new EngineOption(engine.Id, Loc.T("params.engineOption", engine.Name, engine.Id)));
         }
 
         _selectedEngine = EngineOptions.FirstOrDefault(o => string.Equals(o.Id, selectedId, StringComparison.OrdinalIgnoreCase))
@@ -208,7 +206,7 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         var engineDefinition = Services.FindEngine(_selectedEngine?.Id);
         if (engineDefinition is null)
         {
-            Summary = "尚未配置任何推理引擎。请先在“推理引擎”页面添加一个 llama-server。";
+            Summary = Loc.T("params.noEngine");
             return;
         }
 
@@ -255,7 +253,7 @@ public sealed class ModelParametersViewModel : PageViewModelBase
 
         if (rows.Count > 0)
         {
-            Groups.Add(new ParameterGroupViewModel("常用参数", rows));
+            Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.common"), rows));
         }
 
         AdditionalArgumentsText = string.Join(
@@ -263,10 +261,11 @@ public sealed class ModelParametersViewModel : PageViewModelBase
             Services.Current.ModelParameters.AdditionalArguments);
 
         Summary = capabilities.IsAvailable
-            ? $"引擎 {engineDefinition.Id}（版本 {capabilities.Version ?? "未知"}）。"
-              + $"仅以下 {rows.Count} 项会作为控件显示；其他参数请写在“其他参数”里。"
-              + (unsupported.Count > 0 ? $" 该构建不支持：{string.Join("、", unsupported)}。" : string.Empty)
-            : $"引擎能力不可用：{capabilities.Error}";
+            ? Loc.T("params.summary", engineDefinition.Id, capabilities.Version ?? Loc.T("common.unknown"), rows.Count)
+              + (unsupported.Count > 0
+                  ? Loc.T("params.summary.unsupported", string.Join(Loc.T("common.listSeparator"), unsupported))
+                  : string.Empty)
+            : Loc.T("params.summary.unavailable", capabilities.Error);
 
         SetStatus(string.Empty);
     }
@@ -277,7 +276,9 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         var invalid = rows.Where(r => r.IsEnabled && r.IsText && string.IsNullOrWhiteSpace(r.Value)).ToList();
         if (invalid.Count > 0)
         {
-            SetError("以下参数已勾选但没有填写值：" + string.Join("、", invalid.Select(r => r.Key)));
+            SetError(Loc.T(
+                "params.error.emptyValues",
+                string.Join(Loc.T("common.listSeparator"), invalid.Select(r => r.Key))));
             return;
         }
 
@@ -298,8 +299,8 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         });
 
         var count = rows.Count(r => r.IsEnabled && r.Supported);
-        SetStatus($"已保存 {count} 个默认参数，另有 {additional.Count} 行自定义参数。未勾选的参数不会传给引擎。");
-        Services.Notify("模型参数默认值已保存。");
+        SetStatus(Loc.T("params.status.saved", count, additional.Count));
+        Services.Notify(Loc.T("params.notify.saved"));
         await Task.CompletedTask.ConfigureAwait(true);
     }
 
@@ -315,7 +316,7 @@ public sealed class ModelParametersViewModel : PageViewModelBase
         {
             await Services.RefreshCapabilitiesAsync(engine.Id).ConfigureAwait(true);
             Load();
-            SetStatus("已按当前安装的引擎重新探测参数集合。");
-        }, "正在探测引擎参数…").ConfigureAwait(true);
+            SetStatus(Loc.T("params.status.probed"));
+        }, Loc.T("params.busy.probing")).ConfigureAwait(true);
     }
 }

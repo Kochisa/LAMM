@@ -42,12 +42,27 @@ public sealed class AppServices
     /// <summary>Raised for transient status bar messages.</summary>
     public event Action<string>? Notification;
 
+    /// <summary>
+    /// Raised in addition to <see cref="Notification"/> when the message reports a failed
+    /// operation (the tray turns those into balloons). The producer records the severity
+    /// here instead of the consumer guessing it from the text: a text based check cannot
+    /// survive a language switch.
+    /// </summary>
+    public event Action<string>? FailureNotification;
+
     /// <summary>Raised when the gateway must be restarted for settings to take effect.</summary>
     public event Action? GatewayRestartRequired;
 
     public AppSettings Current => Settings.Current;
 
     public void Notify(string message) => Notification?.Invoke(message);
+
+    /// <summary>Reports a failed operation: status bar message plus a tray balloon.</summary>
+    public void NotifyFailure(string message)
+    {
+        Notification?.Invoke(message);
+        FailureNotification?.Invoke(message);
+    }
 
     public void SaveSettings(Action<AppSettings> mutate)
     {
@@ -84,7 +99,7 @@ public sealed class AppServices
         var engine = FindEngine(engineId);
         if (engine is null)
         {
-            return EngineCapabilities.Unavailable(engineId, null, "引擎未配置");
+            return EngineCapabilities.Unavailable(engineId, null, Loc.T("services.capabilities.notConfigured"));
         }
 
         lock (_capabilityGate)
@@ -108,9 +123,18 @@ public sealed class AppServices
     public async Task<EngineCapabilities> RefreshCapabilitiesAsync(string engineId)
     {
         var capabilities = await Task.Run(() => GetCapabilities(engineId, forceRefresh: true)).ConfigureAwait(true);
-        Notify(capabilities.IsAvailable
-            ? $"引擎能力已更新：{capabilities.Parameters.Count} 个可用参数（版本 {capabilities.Version ?? "未知"}）"
-            : $"引擎探测失败：{capabilities.Error}");
+        if (capabilities.IsAvailable)
+        {
+            Notify(Loc.T(
+                "services.capabilities.updated",
+                capabilities.Parameters.Count,
+                capabilities.Version ?? Loc.T("common.unknown")));
+        }
+        else
+        {
+            NotifyFailure(Loc.T("services.capabilities.probeFailed", capabilities.Error));
+        }
+
         return capabilities;
     }
 
@@ -134,7 +158,7 @@ public sealed class AppServices
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Runtime.Logs.Warn("resources", $"自动调参前读取显存失败：{ex.Message}");
+                Runtime.Logs.Warn("resources", Loc.T("log.resources.probeFailed", ex.Message));
             }
         }
 
@@ -160,10 +184,15 @@ public sealed class AppServices
 
         var result = await Task.Run(() => Core.Models.ModelAutoTuner.Tune(input), cancellationToken).ConfigureAwait(true);
 
-        Runtime.Logs.Info("autotune",
-            $"模型 '{Path.GetFileName(modelFilePath)}' 自动调参：" +
-            string.Join("；", result.Explanation) +
-            (result.Warnings.Count > 0 ? " | 警告：" + string.Join("；", result.Warnings) : string.Empty));
+        // The separator between the individual notes stays punctuation, exactly like the
+        // other list joins in this code base; only the words go through the catalog.
+        var details = string.Join("；", result.Explanation);
+        if (result.Warnings.Count > 0)
+        {
+            details += " | " + Loc.T("models.test.warnings") + string.Join("；", result.Warnings);
+        }
+
+        Runtime.Logs.Info("autotune", Loc.T("log.lifecycle.tuned", Path.GetFileName(modelFilePath), details));
 
         return result;
     }

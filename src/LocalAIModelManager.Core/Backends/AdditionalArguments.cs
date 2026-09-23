@@ -1,5 +1,7 @@
 namespace LocalAIModelManager.Core.Backends;
 
+using LocalAIModelManager.Core.Localization;
+
 /// <summary>
 /// Turns the free-form "Other" argument lines into command line tokens.
 ///
@@ -40,7 +42,7 @@ public static class AdditionalArguments
 
                 if (ParameterCatalog.ManagedFlags.Contains(token))
                 {
-                    warnings.Add($"'{token}' 由管理器托管，已忽略该自定义参数。");
+                    warnings.Add(Loc.T("log.other.managedFlagIgnored", token));
                     if (i + 1 < parts.Count && !parts[i + 1].StartsWith('-'))
                     {
                         i++;

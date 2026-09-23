@@ -72,7 +72,6 @@ public sealed class SettingFieldViewModel : ObservableObject
     public IReadOnlyList<string> Choices => _field.Choices;
 
     public ICommand CopyCommand { get; }
-
     public ICommand ToggleRevealCommand { get; }
 
     public ICommand GenerateKeyCommand { get; }
@@ -121,15 +120,22 @@ public sealed class SettingFieldViewModel : ObservableObject
 
     public string? SelectionValue
     {
-        get => _value;
+        get => IsLanguageChoice ? SettingsSections.LanguageDisplay(_value) : _value;
         set
         {
             if (!string.IsNullOrEmpty(value))
             {
-                Value = value;
+                Value = IsLanguageChoice ? SettingsSections.LanguageCodeFor(value) : value;
             }
         }
     }
+
+    /// <summary>
+    /// The interface-language picker stores a code (zh-CN) but shows the native display
+    /// name (e.g. 简体中文 or English), because a translated option list would be unusable - you cannot
+    /// recognise the language you are trying to switch to.
+    /// </summary>
+    private bool IsLanguageChoice => string.Equals(_field.Key, "language", StringComparison.OrdinalIgnoreCase);
 
     public string? ValidationError
     {
@@ -166,26 +172,26 @@ public sealed class SettingFieldViewModel : ObservableObject
         {
             if (!long.TryParse(_value, out var parsed))
             {
-                ValidationError = "请输入整数";
+                ValidationError = Loc.T("settings.validation.integer");
                 return;
             }
 
             if (_field.Min is { } min && parsed < min)
             {
-                ValidationError = $"不能小于 {min}";
+                ValidationError = Loc.T("settings.validation.min", min);
                 return;
             }
 
             if (_field.Max is { } max && parsed > max)
             {
-                ValidationError = $"不能大于 {max}";
+                ValidationError = Loc.T("settings.validation.max", max);
                 return;
             }
         }
 
         if (_field.Kind == SettingFieldKind.Secret && _services.Current.Api.ApiKeyEnabled && string.IsNullOrWhiteSpace(_value))
         {
-            ValidationError = "启用 API 密钥时必须提供密钥";
+            ValidationError = Loc.T("settings.validation.apiKeyRequired");
             return;
         }
 
@@ -214,7 +220,7 @@ public sealed class SettingFieldViewModel : ObservableObject
         var fileDialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = _field.Label,
-            Filter = "可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*",
+            Filter = Loc.T("settings.fileFilter.executables"),
             CheckFileExists = true,
         };
 

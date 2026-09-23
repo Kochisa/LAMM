@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Logging;
 using LocalAIModelManager.Core.Models;
 
@@ -195,9 +196,14 @@ public sealed class BackendProcess : IBackendProcess
 
         Job?.TryAssign(_process);
 
-        _logger.Info("process",
-            $"started engine pid={Pid} model='{ModelId}' engine='{EngineId}' port={Port} (job={(Job?.IsAvailable == true ? "attached" : "unavailable")})");
-        _logger.Debug("process", $"command: {StartInfo.FileName} {string.Join(' ', StartInfo.ArgumentList)}");
+        _logger.Info("process", Loc.T(
+            "log.process.started",
+            Pid,
+            ModelId,
+            EngineId,
+            Port,
+            Job?.IsAvailable == true ? Loc.T("log.process.jobAttached") : Loc.T("log.process.jobUnavailable")));
+        _logger.Debug("process", Loc.T("log.process.command", $"{StartInfo.FileName} {string.Join(' ', StartInfo.ArgumentList)}"));
     }
 
     public string Tail(int lines = 25)
@@ -238,7 +244,7 @@ public sealed class BackendProcess : IBackendProcess
             _state = BackendProcessState.Stopping;
         }
 
-        _logger.Info("process", $"stopping engine pid={Pid} model='{ModelId}' (graceful, grace={grace.TotalSeconds:0.#}s)");
+        _logger.Info("process", Loc.T("log.lifecycle.stopping", Pid, ModelId, grace.TotalSeconds.ToString("0.#")));
         await TryGracefulShutdownAsync().ConfigureAwait(false);
 
         var exited = await WaitForExitAsync(grace, cancellationToken).ConfigureAwait(false);
@@ -249,12 +255,11 @@ public sealed class BackendProcess : IBackendProcess
                 _stopMode = BackendStopMode.Graceful;
             }
 
-            _logger.Info("process", $"engine pid={Pid} model='{ModelId}' stopped gracefully");
+            _logger.Info("process", Loc.T("log.lifecycle.stoppedGraceful", Pid, ModelId));
             return true;
         }
 
-        _logger.Warn("process",
-            $"engine pid={Pid} model='{ModelId}' ignored the graceful stop after {grace.TotalSeconds:0.#}s; forcing kill of the process tree");
+        _logger.Warn("process", Loc.T("log.lifecycle.forceKill", Pid, ModelId, grace.TotalSeconds.ToString("0.#")));
 
         try
         {
@@ -276,7 +281,7 @@ public sealed class BackendProcess : IBackendProcess
         }
 
         var killed = await WaitForExitAsync(TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
-        _logger.Warn("process", $"engine pid={Pid} model='{ModelId}' force-killed (exited={killed})");
+        _logger.Warn("process", Loc.T("log.lifecycle.killed", Pid, ModelId, killed));
         return killed;
     }
 
@@ -312,7 +317,7 @@ public sealed class BackendProcess : IBackendProcess
         }
         catch (Exception ex)
         {
-            _logger.Warn("process", $"error while disposing engine pid={Pid}", ex);
+            _logger.Warn("process", Loc.T("log.process.disposeFailed", Pid), ex);
         }
         finally
         {
@@ -429,7 +434,7 @@ public sealed class BackendProcess : IBackendProcess
             }
         }
 
-        _logger.Info("process", $"engine pid={Pid} model='{ModelId}' exited with code {exitCode?.ToString() ?? "?"}");
+        _logger.Info("process", Loc.T("log.process.exited", Pid, ModelId, exitCode?.ToString() ?? "?"));
         _exitSource.TrySetResult(exitCode);
         Exited?.Invoke(this, exitCode);
     }
@@ -454,7 +459,7 @@ internal static class ConsoleControl
         {
             if (!string.IsNullOrWhiteSpace(helperPath))
             {
-                logger.Debug("process", $"control helper not found at '{helperPath}'; falling back to a forced stop");
+                logger.Debug("process", Loc.T("log.process.helperMissing", helperPath));
             }
 
             return false;
@@ -480,25 +485,25 @@ internal static class ConsoleControl
             if (!helper.WaitForExit(5000))
             {
                 TryKill(helper);
-                logger.Debug("process", $"control helper timed out while signalling pid={pid}");
+                logger.Debug("process", Loc.T("log.process.helperTimeout", pid));
                 return false;
             }
 
             var delivered = helper.ExitCode == 0;
             if (delivered)
             {
-                logger.Debug("process", $"delivered CTRL_BREAK to engine pid={pid}");
+                logger.Debug("process", Loc.T("log.process.ctrlBreak", pid));
             }
             else
             {
-                logger.Debug("process", $"control helper could not signal pid={pid} (exit code {helper.ExitCode})");
+                logger.Debug("process", Loc.T("log.process.ctrlBreakFailed", pid, helper.ExitCode));
             }
 
             return delivered;
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
-            logger.Debug("process", $"control helper failed for pid={pid}: {ex.Message}");
+            logger.Debug("process", Loc.T("log.process.helperFailed", pid, ex.Message));
             return false;
         }
     }

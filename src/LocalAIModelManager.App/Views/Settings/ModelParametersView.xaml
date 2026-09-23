@@ -1,6 +1,7 @@
 <UserControl x:Class="LocalAIModelManager.App.Views.Settings.ModelParametersView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:LocalAIModelManager.App.Infrastructure"
              xmlns:conv="clr-namespace:LocalAIModelManager.App.Infrastructure"
              mc:Ignorable="d"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -26,12 +27,12 @@
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="引擎：" Style="{StaticResource KeyValue.Label}" />
+            <TextBlock Text="{loc:T params.toolbar.engine}" Style="{StaticResource KeyValue.Label}" />
             <ComboBox ItemsSource="{Binding EngineOptions}" DisplayMemberPath="Display"
                       SelectedItem="{Binding SelectedEngine, Mode=TwoWay}" MinWidth="280" />
-            <Button Content="重新探测" Margin="12,0,0,0" Command="{Binding ProbeCommand}" />
-            <Button Content="重新载入" Command="{Binding ReloadCommand}" />
-            <Button Content="保存默认值" Style="{StaticResource Button.Primary}" Command="{Binding SaveCommand}" />
+            <Button Content="{loc:T engine.toolbar.probe}" Margin="12,0,0,0" Command="{Binding ProbeCommand}" />
+            <Button Content="{loc:T common.reload}" Command="{Binding ReloadCommand}" />
+            <Button Content="{loc:T params.toolbar.saveDefaults}" Style="{StaticResource Button.Primary}" Command="{Binding SaveCommand}" />
             <TextBlock Text="{Binding Summary}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center"
                        Margin="12,0,0,0" />
         </StackPanel>
@@ -96,14 +97,14 @@
                 </ItemsControl>
 
                 <StackPanel Margin="0,4,0,10">
-                    <TextBlock Text="其他参数（高级，直接写 llama.cpp 参数，一行一个）"
+                    <TextBlock Text="{loc:T params.section.other}"
                                Style="{StaticResource Text.SectionTitle}" />
                     <TextBox Text="{Binding AdditionalArgumentsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource CodeBlock}"
                              Height="120" AcceptsReturn="True" TextWrapping="NoWrap"
                              FontFamily="Cascadia Mono, Consolas" />
                     <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
-                               Text="示例：--some-option value ／ --another-option（不需要值的开关单独一行）。这些行会按原样追加到 llama-server 命令行；--model / --host / --port 由管理器托管，写了也会被忽略。" />
+                               Text="{loc:T params.other.hint}" />
                 </StackPanel>
               </StackPanel>
             </ScrollViewer>
@@ -113,13 +114,13 @@
             <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Status.Ready}"
                        Visibility="{Binding StatusMessage, Converter={StaticResource EmptyToVisibility}}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="核心规则：未勾选 = 不下发。本应用不会替你填任何推理参数，VRAM 占用由模型和 llama.cpp 自身默认值决定。" />
+                       Text="{loc:T params.footer.core}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="注意 llama.cpp 自身的默认值：不设 --n-gpu-layers 时 -ngl = 0（纯 CPU）；不设 --ctx-size 时它采用模型自身的训练上下文，而 KV cache 是按上下文一次性预留的，长上下文模型可能占用十几 GB 显存。" />
+                       Text="{loc:T params.footer.defaults}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="不想自己算就用「模型」页的「自动调参」——它会读 GGUF 元数据并结合显存给出建议值，但那是一次显式操作。" />
+                       Text="{loc:T params.footer.autotune}" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                       Text="改完保存后，已加载的模型需要到「模型」页点「重启」才会用新参数。" />
+                       Text="{loc:T params.footer.restart}" />
         </StackPanel>
     </Grid>
 </UserControl>

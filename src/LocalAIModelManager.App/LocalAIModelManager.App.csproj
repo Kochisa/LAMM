@@ -25,6 +25,7 @@
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
     <Using Include="System.IO" />
+    <Using Include="LocalAIModelManager.Core.Localization" />
   </ItemGroup>
 
   <ItemGroup>

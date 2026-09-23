@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using LocalAIModelManager.App.Infrastructure;
 using LocalAIModelManager.App.Services;
 using LocalAIModelManager.App.ViewModels;
+using LocalAIModelManager.Core.Configuration;
 using LocalAIModelManager.Core.Logging;
 using LocalAIModelManager.Core.Runtime;
 
@@ -36,6 +37,12 @@ public partial class App : Application
         // 1px window border), for this window and every dialog created later.
         WindowChrome.HookAllWindows();
 
+        // The interface language is itself a setting, and both the headless commands
+        // below and the "already running" dialog print text before any runtime exists.
+        // Read it from disk first; AppRuntime.Create applies the same value again later,
+        // where it is a no-op.
+        SettingsService.ApplyStoredLanguage(AppPaths.ResolveConfigDirectory());
+
         // Headless commands run before anything else (no window, no single-instance
         // mutex, no gateway) so the manager can be scripted.
         var commandLineExit = await TryRunCommandLineAsync(e.Args).ConfigureAwait(true);
@@ -52,8 +59,8 @@ public partial class App : Application
         if (!isNewInstance)
         {
             MessageBox.Show(
-                "Local AI Model Manager 已经在运行。请查看系统托盘图标。",
-                "Local AI Model Manager",
+                Loc.T("dialog.alreadyRunning"),
+                Loc.T("app.title"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             Shutdown(0);
@@ -63,7 +70,7 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
-            TryLog("fatal", "未处理异常", args.ExceptionObject as Exception);
+            TryLog("fatal", Loc.T("log.fatal.unhandledAppDomain"), args.ExceptionObject as Exception);
         };
 
         try
@@ -106,12 +113,12 @@ public partial class App : Application
 
             _tray = new TrayIconService(_services, _shell);
 
-            _services.Notification += message =>
+            // Severity comes from the producer (AppServices.NotifyFailure), never from the
+            // message text: matching localized words would stop working in any language
+            // but the one the words were written in.
+            _services.FailureNotification += message =>
             {
-                if (message.Contains("失败", StringComparison.Ordinal) || message.Contains("错误", StringComparison.Ordinal))
-                {
-                    _tray?.ShowBalloon("Local AI Model Manager", message);
-                }
+                _tray?.ShowBalloon(Loc.T("app.title"), message);
             };
 
             await _shell.InitializeAsync().ConfigureAwait(true);
@@ -121,24 +128,24 @@ public partial class App : Application
             {
                 _window.Hide();
                 _tray.ShowBalloon(
-                    "Local AI Model Manager",
+                    Loc.T("app.title"),
                     startedByWindows
-                        ? "已随 Windows 启动。网关已就绪，所有模型保持待机。"
-                        : "已最小化到托盘。网关已就绪，所有模型保持待机。");
+                        ? Loc.T("app.notify.startedWithWindows")
+                        : Loc.T("app.notify.minimizedToTray"));
             }
             else
             {
                 _window.Show();
             }
 
-            _runtime.Logs.Info("ui", $"window shown (minimized={minimize}), {_runtime.Models.Count} model(s) registered in standby");
+            _runtime.Logs.Info("ui", Loc.T("log.runtime.windowShown", minimize, _runtime.Models.Count));
         }
         catch (Exception ex)
         {
-            TryLog("fatal", "启动失败", ex);
+            TryLog("fatal", Loc.T("log.fatal.startupFailed"), ex);
             MessageBox.Show(
-                $"启动失败：{ex.Message}\n\n详细信息已写入内存日志（可在“运行日志”页面查看）。",
-                "Local AI Model Manager",
+                Loc.T("dialog.startupFailed", ex.Message),
+                Loc.T("app.title"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
@@ -150,11 +157,12 @@ public partial class App : Application
         try
         {
             _tray?.Dispose();
+            _shell?.Dispose();
             _runtime?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
-            TryLog("fatal", "关闭时发生错误", ex);
+            TryLog("fatal", Loc.T("log.fatal.exitFailed"), ex);
         }
         finally
         {
@@ -243,19 +251,19 @@ public partial class App : Application
 
             var report = new List<string>
             {
-                $"模型：{modelPath}",
+                Loc.T("models.test.header", modelPath),
                 string.Empty,
             };
             report.AddRange(result.Explanation.Select(line => "· " + line));
             if (result.Warnings.Count > 0)
             {
                 report.Add(string.Empty);
-                report.Add("注意：");
+                report.Add(Loc.T("app.cli.warnings"));
                 report.AddRange(result.Warnings.Select(w => "! " + w));
             }
 
             report.Add(string.Empty);
-            report.Add("参数：");
+            report.Add(Loc.T("app.cli.parameters"));
             report.AddRange(result.Parameters.Select(p => $"  {p.Key} = {p.Value}"));
 
             var text = string.Join(Environment.NewLine, report);
@@ -372,10 +380,10 @@ public partial class App : Application
         {
             var loadedCount = _services.Lifecycle.GetStatuses().Count(s => s.IsLoaded);
             var message = loadedCount > 0
-                ? $"退出将卸载 {loadedCount} 个已加载模型并结束所有引擎进程。确定退出吗？"
-                : "退出将停止 API 网关并结束所有引擎进程。确定退出吗？";
+                ? Loc.T("dialog.exit.withLoaded", loadedCount)
+                : Loc.T("dialog.exit.noLoaded");
 
-            if (!_services.Dialogs.Confirm("退出 Local AI Model Manager", message))
+            if (!_services.Dialogs.Confirm(Loc.T("dialog.exit.title"), message))
             {
                 _shuttingDown = false;
                 return;
@@ -388,10 +396,10 @@ public partial class App : Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        TryLog("fatal", "UI 线程未处理异常", e.Exception);
+        TryLog("fatal", Loc.T("log.fatal.unhandled"), e.Exception);
         MessageBox.Show(
-            $"发生未处理的错误：{e.Exception.Message}",
-            "Local AI Model Manager",
+            Loc.T("dialog.unhandled", e.Exception.Message),
+            Loc.T("app.title"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
         e.Handled = true;

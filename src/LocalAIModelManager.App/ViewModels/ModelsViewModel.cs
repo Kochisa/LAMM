@@ -71,7 +71,7 @@ public sealed class ModelRowViewModel : ObservableObject
         {
             if (_definition.Parameters.Count == 0)
             {
-                return "使用全局默认值";
+                return Loc.T("models.details.parametersDefault");
             }
 
             return string.Join(", ", _definition.Parameters
@@ -125,10 +125,9 @@ public sealed class ModelsViewModel : PageViewModelBase
         Services.Runtime.Models.Changed += OnRegistryChanged;
     }
 
-    public override string Title => "模型";
+    public override string Title => Loc.T("page.models.title");
 
-    public override string Description =>
-        "注册、编辑与运行模型。启动管理器时不会加载任何模型；模型在收到 API 请求时才按需加载。";
+    public override string Description => Loc.T("page.models.desc");
 
     public ObservableCollection<ModelRowViewModel> Models { get; } = new();
 
@@ -152,21 +151,23 @@ public sealed class ModelsViewModel : PageViewModelBase
             var row = Selected;
             if (row is null)
             {
-                return "未选择模型。";
+                return Loc.T("models.details.none");
             }
 
             var lines = new List<string>
             {
-                $"模型 ID：{row.Id}",
-                $"文件：{row.FilePath}（{(row.FileExists ? "存在" : "缺失")}）",
-                $"引擎：{row.EngineName}",
-                $"状态：{row.StateLabel}" + (row.IsLoaded ? $"（PID {row.Pid}，内部端口 {row.Port}）" : string.Empty),
-                $"参数：{row.ParametersSummary}",
+                Loc.T("models.details.id", row.Id),
+                Loc.T("models.details.file", row.FilePath, Loc.T(row.FileExists ? "models.details.fileExists" : "models.details.fileMissing")),
+                Loc.T("models.details.engine", row.EngineName),
+                row.IsLoaded
+                    ? Loc.T("models.details.stateLoaded", row.StateLabel, row.Pid, row.Port)
+                    : Loc.T("models.details.state", row.StateLabel),
+                Loc.T("models.details.parameters", row.ParametersSummary),
             };
 
             if (row.LastError is { Length: > 0 } error)
             {
-                lines.Add($"最近错误：{error}");
+                lines.Add(Loc.T("models.details.lastError", error));
             }
 
             if (row.LaunchWarning is { Length: > 0 } warning)
@@ -178,15 +179,14 @@ public sealed class ModelsViewModel : PageViewModelBase
             if (row.LaunchCommandLine.Length > 0)
             {
                 lines.Add(string.Empty);
-                lines.Add("实际启动命令行：");
+                lines.Add(Loc.T("models.details.commandLine"));
                 lines.Add(row.LaunchCommandLine);
 
                 if (!row.LaunchCommandLine.Contains("--n-gpu-layers", StringComparison.OrdinalIgnoreCase) &&
                     !row.LaunchCommandLine.Contains("-ngl", StringComparison.OrdinalIgnoreCase))
                 {
                     lines.Add(string.Empty);
-                    lines.Add("提示：未设置 GPU 层数，将按引擎自身默认运行（llama.cpp 默认 -ngl 0，即纯 CPU）。"
-                              + "要用显卡请在「编辑…」里设置 --n-gpu-layers，或点「自动调参」。");
+                    lines.Add(Loc.T("models.details.noGpuLayersTip"));
                 }
             }
 
@@ -297,7 +297,7 @@ public sealed class ModelsViewModel : PageViewModelBase
     {
         if (Services.Engines.Count == 0)
         {
-            Services.Dialogs.ShowError("添加模型", "请先在“推理引擎”设置页注册一个推理引擎。");
+            Services.Dialogs.ShowError(Loc.T("editor.model.title.new"), Loc.T("models.needEngine"));
             return;
         }
 
@@ -310,12 +310,12 @@ public sealed class ModelsViewModel : PageViewModelBase
         try
         {
             var added = Services.Models.Add(dialog.Result);
-            SetStatus($"已注册模型 {added.Id}。模型文件未被复制或移动。");
-            Services.Notify($"模型 {added.Id} 已注册（处于待机状态，不会自动加载）。");
+            SetStatus(Loc.T("models.status.registered", added.Id));
+            Services.Notify(Loc.T("models.notify.registered", added.Id));
         }
         catch (InvalidOperationException ex)
         {
-            Services.Dialogs.ShowError("添加模型", ex.Message);
+            Services.Dialogs.ShowError(Loc.T("editor.model.title.new"), ex.Message);
             SetError(ex.Message);
         }
 
@@ -338,7 +338,7 @@ public sealed class ModelsViewModel : PageViewModelBase
         }
 
         Services.Models.Update(dialog.Result);
-        SetStatus($"已更新模型 {dialog.Result.Id}。");
+        SetStatus(Loc.T("models.status.updated", dialog.Result.Id));
         ReloadRows();
         await Task.CompletedTask.ConfigureAwait(true);
     }
@@ -351,15 +351,18 @@ public sealed class ModelsViewModel : PageViewModelBase
             return;
         }
 
-        var displayName = Services.Dialogs.Prompt("重命名模型", "新的显示名称：", row.DisplayName);
+        var displayName = Services.Dialogs.Prompt(
+            Loc.T("models.rename.title"),
+            Loc.T("models.rename.displayName"),
+            row.DisplayName);
         if (displayName is null)
         {
             return;
         }
 
         var newId = Services.Dialogs.Prompt(
-            "重命名模型",
-            $"API 中的模型 ID（保持 “{row.Id}” 则只改显示名称）：",
+            Loc.T("models.rename.title"),
+            Loc.T("models.rename.modelId", row.Id),
             row.Id);
 
         if (newId is null)
@@ -377,13 +380,13 @@ public sealed class ModelsViewModel : PageViewModelBase
             }
 
             Services.Models.Rename(row.Id, displayName, newId);
-            SetStatus($"已重命名模型 {row.Id} → {newId}。");
+            SetStatus(Loc.T("models.status.renamed", row.Id, newId));
             ReloadRows();
         }
         catch (InvalidOperationException ex)
         {
             SetError(ex.Message);
-            Services.Dialogs.ShowError("重命名模型", ex.Message);
+            Services.Dialogs.ShowError(Loc.T("models.rename.title"), ex.Message);
         }
     }
 
@@ -396,9 +399,8 @@ public sealed class ModelsViewModel : PageViewModelBase
         }
 
         var confirmed = Services.Dialogs.Confirm(
-            "删除模型",
-            $"确定从管理器中删除模型“{row.DisplayName}”（{row.Id}）吗？\n\n" +
-            "只删除注册信息；磁盘上的模型文件不会被删除。");
+            Loc.T("models.delete.title"),
+            Loc.T("models.delete.confirm", row.DisplayName, row.Id));
 
         if (!confirmed)
         {
@@ -409,8 +411,8 @@ public sealed class ModelsViewModel : PageViewModelBase
         {
             await Services.Lifecycle.StopAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
             Services.Models.Remove(row.Id);
-            SetStatus($"已删除模型记录 {row.Id}（模型文件未被删除）。");
-            Services.Notify($"已删除模型记录 {row.Id}；文件仍保留在磁盘上。");
+            SetStatus(Loc.T("models.status.deleted", row.Id));
+            Services.Notify(Loc.T("models.notify.deleted", row.Id));
             ReloadRows();
         }).ConfigureAwait(true);
     }
@@ -419,25 +421,25 @@ public sealed class ModelsViewModel : PageViewModelBase
     {
         var row = Selected!;
         await Services.Lifecycle.StartAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
-        SetStatus($"模型 {row.Id} 已加载并进入就绪状态。");
+        SetStatus(Loc.T("models.status.loaded", row.Id));
         RefreshStatuses();
-    }, "正在加载模型…");
+    }, Loc.T("models.busy.loading"));
 
     private Task StopAsync() => RunAsync(async () =>
     {
         var row = Selected!;
         await Services.Lifecycle.StopAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
-        SetStatus($"模型 {row.Id} 已卸载，显存已释放。");
+        SetStatus(Loc.T("models.status.unloaded", row.Id));
         RefreshStatuses();
-    }, "正在卸载模型…");
+    }, Loc.T("models.busy.unloading"));
 
     private Task RestartAsync() => RunAsync(async () =>
     {
         var row = Selected!;
         await Services.Lifecycle.RestartAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
-        SetStatus($"模型 {row.Id} 已重启。");
+        SetStatus(Loc.T("models.status.restarted", row.Id));
         RefreshStatuses();
-    }, "正在重启模型…");
+    }, Loc.T("models.busy.restarting"));
 
     /// <summary>
     /// Reads the model file's own GGUF metadata and combines it with the card's VRAM to
@@ -447,7 +449,7 @@ public sealed class ModelsViewModel : PageViewModelBase
     {
         var row = Selected!;
         var model = Services.Models.Get(row.Id)
-                    ?? throw new InvalidOperationException($"模型 {row.Id} 已不存在。");
+                    ?? throw new InvalidOperationException(Loc.T("models.error.missing", row.Id));
 
         var result = await Services.AutoTuneAsync(model.FilePath).ConfigureAwait(true);
 
@@ -461,12 +463,12 @@ public sealed class ModelsViewModel : PageViewModelBase
 
         TestOutput = BuildTuningReport(model, result, wasLoaded: row.IsLoaded);
         SetStatus(result.UsedFallback
-            ? $"已为 {model.Id} 写入保守默认参数（元数据或显存信息不足）。"
-            : $"已按模型元数据与显存为 {model.Id} 写入参数。"
-              + (row.IsLoaded ? " 该模型当前已加载，请点「重启」生效。" : string.Empty));
+            ? Loc.T("models.status.tunedFallback", model.Id)
+            : Loc.T("models.status.tuned", model.Id)
+              + (row.IsLoaded ? Loc.T("models.status.tunedReload") : string.Empty));
 
         ReloadRows();
-    }, "正在读取模型元数据并按显存计算参数…");
+    }, Loc.T("models.busy.tuning"));
 
     private Task AutoTuneAllAsync() => RunAsync(async () =>
     {
@@ -479,7 +481,7 @@ public sealed class ModelsViewModel : PageViewModelBase
             var result = await Services.AutoTuneAsync(model.FilePath).ConfigureAwait(true);
             if (result.UsedFallback)
             {
-                lines.Add($"· {model.Id}：跳过（{string.Join(" ", result.Warnings)}）");
+                lines.Add(Loc.T("models.autotune.allSkipped", model.Id, string.Join(" ", result.Warnings)));
                 continue;
             }
 
@@ -491,18 +493,18 @@ public sealed class ModelsViewModel : PageViewModelBase
 
             Services.Models.Update(updated);
             changed++;
-            lines.Add($"· {model.Id}：{string.Join("　", result.Explanation.Skip(1))}");
+            lines.Add(Loc.T("models.autotune.allEntry", model.Id, string.Join("　", result.Explanation.Skip(1))));
         }
 
-        TestOutput = $"按显存自动调参（{changed}/{all.Count} 个模型已更新）"
+        TestOutput = Loc.T("models.autotune.allHeader", changed, all.Count)
                      + Environment.NewLine + Environment.NewLine
                      + string.Join(Environment.NewLine, lines)
                      + Environment.NewLine + Environment.NewLine
-                     + "已加载的模型需要点「重启」才会使用新参数。";
+                     + Loc.T("models.autotune.allNote");
 
-        SetStatus($"已自动调参 {changed} 个模型。");
+        SetStatus(Loc.T("models.status.tunedAll", changed));
         ReloadRows();
-    }, "正在为所有模型读取元数据并计算参数…");
+    }, Loc.T("models.busy.tuningAll"));
 
     private static string BuildTuningReport(
         Core.Models.ModelDefinition model,
@@ -511,8 +513,8 @@ public sealed class ModelsViewModel : PageViewModelBase
     {
         var lines = new List<string>
         {
-            $"自动调参：{model.Id}",
-            $"文件：{model.FilePath}",
+            Loc.T("models.autotune.reportHeader", model.Id),
+            Loc.T("models.autotune.reportFile", model.FilePath),
             string.Empty,
         };
 
@@ -521,18 +523,18 @@ public sealed class ModelsViewModel : PageViewModelBase
         if (result.Warnings.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("注意：");
+            lines.Add(Loc.T("models.autotune.reportWarnings"));
             lines.AddRange(result.Warnings.Select(w => "! " + w));
         }
 
         lines.Add(string.Empty);
-        lines.Add("已写入模型的参数：");
+        lines.Add(Loc.T("models.autotune.reportWritten"));
         lines.AddRange(result.Parameters.Select(p => $"  {p.Key} = {p.Value}"));
 
         if (wasLoaded)
         {
             lines.Add(string.Empty);
-            lines.Add("该模型当前已加载，参数改动需要点「重启」才会生效。");
+            lines.Add(Loc.T("models.autotune.reportLoaded"));
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -542,7 +544,12 @@ public sealed class ModelsViewModel : PageViewModelBase
     {        var row = Selected!;
         var result = await Services.Lifecycle.TestAsync(row.Id, CancellationToken.None).ConfigureAwait(true);
 
-        var lines = new List<string> { $"模型：{row.Id}", $"结论：{result.Summary}", string.Empty };
+        var lines = new List<string>
+        {
+            Loc.T("models.test.header", row.Id),
+            Loc.T("models.test.verdict", result.Summary),
+            string.Empty,
+        };
 
         foreach (var detail in result.Details)
         {
@@ -552,27 +559,27 @@ public sealed class ModelsViewModel : PageViewModelBase
         if (result.Warnings.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("警告：");
+            lines.Add(Loc.T("models.test.warnings"));
             lines.AddRange(result.Warnings.Select(w => "! " + w));
         }
 
         if (result.Errors.Count > 0)
         {
             lines.Add(string.Empty);
-            lines.Add("错误：");
+            lines.Add(Loc.T("models.test.errors"));
             lines.AddRange(result.Errors.Select(e => "× " + e));
         }
 
         TestOutput = string.Join(Environment.NewLine, lines);
-        SetStatus(result.Success ? "测试通过：配置可用。" : "测试未通过，请查看下方输出。");
-    }, "正在测试模型配置…");
+        SetStatus(result.Success ? Loc.T("models.status.testPassed") : Loc.T("models.status.testFailed"));
+    }, Loc.T("models.busy.testing"));
 
     private Task UnloadAllAsync() => RunAsync(async () =>
     {
         await Services.Lifecycle.UnloadAllAsync(CancellationToken.None).ConfigureAwait(true);
-        SetStatus("已卸载全部模型并释放显存。");
+        SetStatus(Loc.T("models.status.unloadedAll"));
         RefreshStatuses();
-    }, "正在卸载全部模型…");
+    }, Loc.T("models.busy.unloadingAll"));
 
     private void CopySelectedId()
     {
@@ -583,7 +590,7 @@ public sealed class ModelsViewModel : PageViewModelBase
 
         if (ClipboardHelper.SetText(Selected.Id))
         {
-            SetStatus($"已复制模型 ID：{Selected.Id}");
+            SetStatus(Loc.T("models.status.idCopied", Selected.Id));
         }
     }
 
@@ -610,7 +617,7 @@ public sealed class ModelsViewModel : PageViewModelBase
         }
         catch (Exception ex)
         {
-            SetError($"无法打开所在目录：{ex.Message}");
+            SetError(Loc.T("models.openFolder.failed", ex.Message));
         }
     }
 }

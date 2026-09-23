@@ -1,6 +1,7 @@
 <UserControl x:Class="LocalAIModelManager.App.Views.RuntimeStatusView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:LocalAIModelManager.App.Infrastructure"
              xmlns:conv="clr-namespace:LocalAIModelManager.App.Infrastructure"
              mc:Ignorable="d"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -30,9 +31,9 @@
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <Button Content="立即刷新" Command="{Binding RefreshCommand}" />
-            <Button Content="复制状态 JSON" Command="{Binding CopyJsonCommand}" />
-            <Button Content="卸载全部模型" Command="{Binding UnloadAllCommand}" />
+            <Button Content="{loc:T status.toolbar.refresh}" Command="{Binding RefreshCommand}" />
+            <Button Content="{loc:T status.toolbar.copyJson}" Command="{Binding CopyJsonCommand}" />
+            <Button Content="{loc:T status.toolbar.unloadAll}" Command="{Binding UnloadAllCommand}" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
@@ -46,7 +47,7 @@
 
                     <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,7,14">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="网关" Style="{StaticResource Text.SectionTitle}" />
+                            <TextBlock DockPanel.Dock="Top" Text="{loc:T status.gateway.header}" Style="{StaticResource Text.SectionTitle}" />
                             <ItemsControl ItemsSource="{Binding GatewayRows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -71,10 +72,10 @@
 
                     <Border Grid.Column="1" Style="{StaticResource Card}" Margin="7,0,0,14">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="资源" Style="{StaticResource Text.SectionTitle}" />
+                            <TextBlock DockPanel.Dock="Top" Text="{loc:T status.resources.header}" Style="{StaticResource Text.SectionTitle}" />
 
                             <StackPanel DockPanel.Dock="Top" Margin="0,10,0,10">
-                                <TextBlock Text="显存占用" Style="{StaticResource KeyValue.Label}" />
+                                <TextBlock Text="{loc:T status.value.vramUsage}" Style="{StaticResource KeyValue.Label}" />
                                 <ProgressBar Height="18" Minimum="0" Maximum="100" Value="{Binding GpuUsedPercent, Mode=OneWay}"
                                              Foreground="{DynamicResource App.Accent}"
                                              Background="{DynamicResource App.SurfaceAlt}"
@@ -83,7 +84,7 @@
                             </StackPanel>
 
                             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                                <TextBlock Text="系统 CPU" Style="{StaticResource KeyValue.Label}" />
+                                <TextBlock Text="{loc:T status.value.cpuUsage}" Style="{StaticResource KeyValue.Label}" />
                                 <ProgressBar Height="18" Minimum="0" Maximum="100" Value="{Binding CpuPercent, Mode=OneWay}"
                                              Foreground="{DynamicResource App.Accent}"
                                              Background="{DynamicResource App.SurfaceAlt}"
@@ -111,10 +112,10 @@
                 <!-- models -->
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="模型状态" Style="{StaticResource Text.SectionTitle}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{loc:T status.models.header}" Style="{StaticResource Text.SectionTitle}" />
                         <DataGrid ItemsSource="{Binding Models}" MaxHeight="240">
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="状态" Width="110">
+                                <DataGridTemplateColumn Header="{loc:T models.column.state}" Width="110">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
@@ -125,27 +126,27 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="模型 ID" Binding="{Binding Id}" Width="170" />
-                                <DataGridTextColumn Header="引擎" Binding="{Binding EngineName}" Width="150" />
+                                <DataGridTextColumn Header="{loc:T models.column.id}" Binding="{Binding Id}" Width="170" />
+                                <DataGridTextColumn Header="{loc:T models.column.engine}" Binding="{Binding EngineName}" Width="150" />
                                 <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="70" />
-                                <DataGridTextColumn Header="内部端口" Binding="{Binding Port}" Width="80" />
-                                <DataGridTextColumn Header="请求中" Binding="{Binding ActiveRequests}" Width="70" />
-                                <DataGridTextColumn Header="累计请求" Binding="{Binding TotalRequests}" Width="80" />
-                                <DataGridTemplateColumn Header="显存" Width="100">
+                                <DataGridTextColumn Header="{loc:T status.column.internalPort}" Binding="{Binding Port}" Width="80" />
+                                <DataGridTextColumn Header="{loc:T models.column.activeRequests}" Binding="{Binding ActiveRequests}" Width="70" />
+                                <DataGridTextColumn Header="{loc:T models.column.totalRequests}" Binding="{Binding TotalRequests}" Width="80" />
+                                <DataGridTemplateColumn Header="{loc:T models.column.vram}" Width="100">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding VramBytes, Converter={StaticResource BytesToHuman}}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="最近使用" Width="160">
+                                <DataGridTemplateColumn Header="{loc:T status.column.lastUsed}" Width="160">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding LastUsedAtUtc, Converter={StaticResource DateTimeLocal}}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="空闲时长" Width="100">
+                                <DataGridTemplateColumn Header="{loc:T models.column.idleFor}" Width="100">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding IdleFor, Converter={StaticResource DurationToHuman}}" />
@@ -160,23 +161,23 @@
                 <!-- processes -->
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="受管子进程" Style="{StaticResource Text.SectionTitle}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{loc:T status.processes.header}" Style="{StaticResource Text.SectionTitle}" />
                         <DataGrid ItemsSource="{Binding Processes}" MaxHeight="200" Margin="0,0,0,14">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="80" />
-                                <DataGridTextColumn Header="模型" Binding="{Binding ModelId}" Width="160" />
-                                <DataGridTextColumn Header="引擎" Binding="{Binding EngineId}" Width="150" />
-                                <DataGridTextColumn Header="内部端口" Binding="{Binding Port}" Width="90" />
-                                <DataGridTextColumn Header="状态" Binding="{Binding State}" Width="100" />
-                                <DataGridTextColumn Header="存活" Binding="{Binding IsAlive}" Width="70" />
-                                <DataGridTemplateColumn Header="启动时间" Width="170">
+                                <DataGridTextColumn Header="{loc:T status.column.model}" Binding="{Binding ModelId}" Width="160" />
+                                <DataGridTextColumn Header="{loc:T models.column.engine}" Binding="{Binding EngineId}" Width="150" />
+                                <DataGridTextColumn Header="{loc:T status.column.internalPort}" Binding="{Binding Port}" Width="90" />
+                                <DataGridTextColumn Header="{loc:T models.column.state}" Binding="{Binding State}" Width="100" />
+                                <DataGridTextColumn Header="{loc:T status.column.alive}" Binding="{Binding IsAlive}" Width="70" />
+                                <DataGridTemplateColumn Header="{loc:T status.column.startedAt}" Width="170">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding StartedAtUtc, Converter={StaticResource DateTimeLocal}}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="工作集" Width="110">
+                                <DataGridTemplateColumn Header="{loc:T status.column.workingSet}" Width="110">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding WorkingSetBytes, Converter={StaticResource BytesToHuman}}" />
@@ -186,14 +187,14 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <TextBlock DockPanel.Dock="Top" Text="已退出进程（历史）" Style="{StaticResource Text.SectionTitle}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{loc:T status.exited.header}" Style="{StaticResource Text.SectionTitle}" />
                         <DataGrid ItemsSource="{Binding ExitedProcesses}" MaxHeight="160">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="80" />
-                                <DataGridTextColumn Header="模型" Binding="{Binding ModelId}" Width="160" />
-                                <DataGridTextColumn Header="退出码" Binding="{Binding ExitCode}" Width="80" />
-                                <DataGridTextColumn Header="停止方式" Binding="{Binding StopMode}" Width="110" />
-                                <DataGridTemplateColumn Header="退出时间" Width="170">
+                                <DataGridTextColumn Header="{loc:T status.column.model}" Binding="{Binding ModelId}" Width="160" />
+                                <DataGridTextColumn Header="{loc:T status.column.exitCode}" Binding="{Binding ExitCode}" Width="80" />
+                                <DataGridTextColumn Header="{loc:T status.column.stopMode}" Binding="{Binding StopMode}" Width="110" />
+                                <DataGridTemplateColumn Header="{loc:T status.column.exitedAt}" Width="170">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding ExitedAtUtc, Converter={StaticResource DateTimeLocal}}" />
@@ -208,17 +209,17 @@
                 <!-- engines -->
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="推理引擎" Style="{StaticResource Text.SectionTitle}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{loc:T status.engines.header}" Style="{StaticResource Text.SectionTitle}" />
                         <DataGrid ItemsSource="{Binding Engines}" MaxHeight="220">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="引擎 ID" Binding="{Binding Id}" Width="140" />
-                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
-                                <DataGridTextColumn Header="适配器" Binding="{Binding AdapterKind}" Width="130" />
-                                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="120" />
-                                <DataGridTextColumn Header="参数数" Binding="{Binding SupportedParameterCount}" Width="80" />
-                                <DataGridTextColumn Header="模型数" Binding="{Binding ModelCount}" Width="80" />
-                                <DataGridTextColumn Header="默认" Binding="{Binding IsSelected}" Width="60" />
-                                <DataGridTextColumn Header="GPU 设备（引擎自报）" Binding="{Binding GpuDevicesText}" Width="320" />
+                                <DataGridTextColumn Header="{loc:T status.column.engineId}" Binding="{Binding Id}" Width="140" />
+                                <DataGridTextColumn Header="{loc:T status.column.name}" Binding="{Binding Name}" Width="*" />
+                                <DataGridTextColumn Header="{loc:T status.column.adapter}" Binding="{Binding AdapterKind}" Width="130" />
+                                <DataGridTextColumn Header="{loc:T status.column.version}" Binding="{Binding Version}" Width="120" />
+                                <DataGridTextColumn Header="{loc:T status.column.paramCount}" Binding="{Binding SupportedParameterCount}" Width="80" />
+                                <DataGridTextColumn Header="{loc:T status.column.modelCount}" Binding="{Binding ModelCount}" Width="80" />
+                                <DataGridTextColumn Header="{loc:T status.column.isDefault}" Binding="{Binding IsSelected}" Width="60" />
+                                <DataGridTextColumn Header="{loc:T status.column.gpuDevices}" Binding="{Binding GpuDevicesText}" Width="320" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
@@ -227,7 +228,7 @@
                 <!-- issues -->
                 <Border Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="配置校验" Style="{StaticResource Text.SectionTitle}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{loc:T status.issues.header}" Style="{StaticResource Text.SectionTitle}" />
                         <ItemsControl ItemsSource="{Binding Issues}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -236,7 +237,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="未发现问题。">
+                        <TextBlock Text="{loc:T status.issues.none}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
                                     <Setter Property="Visibility" Value="Collapsed" />

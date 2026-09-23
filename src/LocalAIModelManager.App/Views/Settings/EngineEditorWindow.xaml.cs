@@ -14,7 +14,7 @@ public partial class EngineEditorWindow : Window
     {
         InitializeComponent();
         _isNew = isNew;
-        Title = isNew ? "添加推理引擎" : $"编辑引擎 - {existing?.Name}";
+        Title = isNew ? Loc.T("editor.engine.title.new") : Loc.T("editor.engine.title.edit", existing?.Name);
 
         var engine = existing?.Clone() ?? new EngineDefinition
         {
@@ -49,8 +49,9 @@ public partial class EngineEditorWindow : Window
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "选择引擎可执行文件",
-            Filter = "可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*",
+            Title = Loc.T("editor.engine.pickExe"),
+            Filter = Loc.T("editor.engine.executable") + " (*.exe)|*.exe|"
+                     + Loc.T("editor.filter.allFiles") + " (*.*)|*.*",
             CheckFileExists = true,
         };
 
@@ -73,7 +74,7 @@ public partial class EngineEditorWindow : Window
     {
         using var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "选择引擎工作目录",
+            Description = Loc.T("editor.engine.pickWorkDir"),
             UseDescriptionForTitle = true,
         };
 
@@ -97,21 +98,21 @@ public partial class EngineEditorWindow : Window
 
         if (string.IsNullOrWhiteSpace(id))
         {
-            errors.Add("引擎 ID 不能为空。");
+            errors.Add(Loc.T("editor.engine.error.idRequired"));
         }
 
         if (string.IsNullOrWhiteSpace(executable))
         {
-            errors.Add("请选择引擎可执行文件。");
+            errors.Add(Loc.T("editor.engine.error.exeRequired"));
         }
         else if (!File.Exists(executable))
         {
-            errors.Add($"找不到可执行文件：{executable}");
+            errors.Add(Loc.T("editor.engine.error.exeMissing", executable));
         }
 
         if (!int.TryParse(StartupTimeoutBox.Text.Trim(), out var startupTimeout) || startupTimeout <= 0)
         {
-            errors.Add("启动超时必须是正整数。");
+            errors.Add(Loc.T("editor.engine.error.timeout"));
             startupTimeout = 180;
         }
 

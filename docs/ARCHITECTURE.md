@@ -285,7 +285,7 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 
 | 页面 | 分区 | 主要内容 |
 |---|---|---|
-| 常规 | `general` | 开机启动、启动最小化、关闭到托盘、主题、启动时探测引擎 |
+| 常规 | `general` | 开机启动、启动最小化、关闭到托盘、**界面语言**、主题、启动时探测引擎 |
 | API | `api` | 监听地址/端口、LAN 开关、API Key 启用/生成/复制/显示、并发、超时、状态端点 |
 | 推理引擎 | —（自定义页） | 引擎增删改、`--help` 探测、设为默认、查看该构建支持的参数 |
 | 模型参数 | —（自定义页） | **按引擎探测结果**渲染参数默认值（含「该引擎不支持」的置灰项） |
@@ -303,6 +303,28 @@ CTRL_BREAK 并被终止**（实测退出码 `0xC000013A`）。把这一步放进
 集成      → API 集成
 设置      → 常规、API、推理引擎、模型参数、生命周期、资源、网络、高级
 ```
+
+---
+
+## 8.1 多语言（简体中文 / English / 日本語 / Français）
+
+界面与**日志输出**共用同一套本地化资源，切换语言后两者同时生效。
+
+| 组件 | 位置 | 作用 |
+|---|---|---|
+| `Localizer` | `Core/Localization/Localizer.cs` | 语言状态、查找、`LanguageChanged` 事件、切换 UI 区域性 |
+| `Loc` | 同上 | 全局静态别名：`Loc.T("key")` / `Loc.T("key", arg0, arg1)` |
+| `TExtension` | `App/Infrastructure/TExtension.cs` | XAML 标记扩展：`Text="{loc:T models.toolbar.add}"` |
+| `strings.*.json` | `Core/Localization/` | 四个语言字典，作为 `EmbeddedResource` 打进程序集 |
+
+规则：
+
+1. **查找顺序**：当前语言 → `en-US` → 键名本身。某个键漏译只会退化成英文，不会让界面报错。
+2. **占位符**：JSON 里写 `{0}`、`{1}`，调用方按位置传参，`Loc.T` 内部做 `string.Format`；占位符写坏时返回原文而不是抛异常。
+3. **日志语言在写日志的那一刻决定**。已经写进内存缓冲的条目保留当时的语言——这是有意行为，避免刷新历史日志时文字被改写。
+4. **不切换数据区域性**（`DefaultThreadCurrentCulture` 保持不变），只切 `DefaultThreadCurrentUICulture`。参数是当作不变文本解析和拼接的，小数点变成逗号的区域会让 `0.7` 这类值悄悄出错。
+5. **运行期重建**：语言变化时 `ShellViewModel` 重建导航项、清空页面/视图缓存并重新导航；`PageCatalog`、`SettingsSections`、各页 `Title`/`Description` 都是每次访问时构建，不缓存在 `static readonly` 里。
+6. 引擎自身的名称、模型 ID、命令行开关（`--ctx-size`）、HTTP 头与文件通配符（`*.gguf`）**不翻译**。
 
 ---
 

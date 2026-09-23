@@ -35,14 +35,14 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
             {
                 await Services.Lifecycle.UnloadAllAsync(CancellationToken.None).ConfigureAwait(true);
                 RefreshSnapshot();
-                SetStatus("已卸载全部模型。");
+                SetStatus(Loc.T("status.status.unloadedAll"));
             },
             () => !IsBusy);
     }
 
-    public override string Title => "运行状态";
+    public override string Title => Loc.T("page.runtimeStatus.title");
 
-    public override string Description => "网关、已加载模型、引擎进程与显存占用的实时视图。";
+    public override string Description => Loc.T("page.runtimeStatus.desc");
 
     public ObservableCollection<ModelRowViewModel> Models { get; } = new();
 
@@ -66,7 +66,7 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
 
     public bool GpuAvailable => _snapshot?.Resources.GpuAvailable ?? false;
 
-    public string GpuName => _snapshot?.Resources.PrimaryGpu?.Name ?? "未检测到 NVIDIA GPU";
+    public string GpuName => _snapshot?.Resources.PrimaryGpu?.Name ?? Loc.T("status.value.gpuNotFound");
 
     public double GpuUsedPercent => _snapshot?.Resources.PrimaryGpu?.UsedPercent ?? 0;
 
@@ -81,7 +81,11 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
             }
 
             const double GiB = 1024.0 * 1024 * 1024;
-            return $"{gpu.UsedBytes / GiB:F1} / {gpu.TotalBytes / GiB:F1} GiB（空闲 {gpu.FreeBytes / GiB:F1} GiB）";
+            return Loc.T(
+                "status.value.vramUsageDetail",
+                $"{gpu.UsedBytes / GiB:F1}",
+                $"{gpu.TotalBytes / GiB:F1}",
+                $"{gpu.FreeBytes / GiB:F1}");
         }
     }
 
@@ -115,7 +119,7 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
             var snapshot = _snapshot;
             return snapshot is null
                 ? "—"
-                : $"已加载 {snapshot.LoadedModelCount} 个，待机 {snapshot.StandbyModelCount} 个，共 {snapshot.Models.Count} 个模型";
+                : Loc.T("status.value.modelsSummary", snapshot.LoadedModelCount, snapshot.StandbyModelCount, snapshot.Models.Count);
         }
     }
 
@@ -149,33 +153,35 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
 
             GatewayRows.Clear();
             var gateway = snapshot.Gateway;
-            GatewayRows.Add(new StatusRow("网关状态", gateway.IsRunning ? "运行中" : "已停止",
-                gateway.IsRunning ? null : "可在“API”设置页保存后重启网关",
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.gatewayState"),
+                gateway.IsRunning ? Loc.T("status.value.running") : Loc.T("status.value.stopped"),
+                gateway.IsRunning ? null : Loc.T("status.value.gatewayStoppedHint"),
                 gateway.IsRunning ? "ok" : "error"));
-            GatewayRows.Add(new StatusRow("Base URL", gateway.BaseUrl ?? "—",
-                gateway.LanAccessEnabled ? "已允许局域网访问" : "仅本机可访问（127.0.0.1）"));
-            GatewayRows.Add(new StatusRow("鉴权", gateway.ApiKeyEnabled ? "已启用 API 密钥" : "未启用鉴权",
-                gateway.ApiKeyEnabled ? "Authorization: Bearer <API_KEY>" : "任何能访问该端口的主机都可调用",
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.baseUrl"), gateway.BaseUrl ?? "—",
+                gateway.LanAccessEnabled ? Loc.T("status.value.lanAllowed") : Loc.T("status.value.lanLocalOnly")));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.auth"),
+                gateway.ApiKeyEnabled ? Loc.T("status.value.authEnabled") : Loc.T("status.value.authDisabled"),
+                gateway.ApiKeyEnabled ? Loc.T("status.value.authHeader") : Loc.T("status.value.anyHost"),
                 gateway.ApiKeyEnabled ? "ok" : "warn"));
-            GatewayRows.Add(new StatusRow("启动时间", gateway.StartedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—"));
-            GatewayRows.Add(new StatusRow("累计请求", gateway.TotalRequests.ToString()));
-            GatewayRows.Add(new StatusRow("进行中请求", gateway.ActiveRequests.ToString()));
-            GatewayRows.Add(new StatusRow("配置目录", snapshot.ConfigDirectory ?? "—"));
-            GatewayRows.Add(new StatusRow("内存日志条数", snapshot.LogEntryCount.ToString()));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.startedAt"), gateway.StartedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—"));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.totalRequests"), gateway.TotalRequests.ToString()));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.activeRequests"), gateway.ActiveRequests.ToString()));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.configDir"), snapshot.ConfigDirectory ?? "—"));
+            GatewayRows.Add(new StatusRow(Loc.T("status.row.logEntries"), snapshot.LogEntryCount.ToString()));
 
             if (gateway.LastError is { Length: > 0 } lastError)
             {
-                GatewayRows.Add(new StatusRow("最近错误", lastError, null, "error"));
+                GatewayRows.Add(new StatusRow(Loc.T("status.row.lastError"), lastError, null, "error"));
             }
 
             ResourceRows.Clear();
-            ResourceRows.Add(new StatusRow("GPU", GpuName, GpuAvailable ? null : snapshot.Resources.GpuError, GpuAvailable ? "ok" : "warn"));
-            ResourceRows.Add(new StatusRow("显存", GpuUsedText));
-            ResourceRows.Add(new StatusRow("GPU 利用率", GpuAvailable ? $"{GpuUtilization:F0}%" : "—"));
-            ResourceRows.Add(new StatusRow("GPU 温度", GpuTemperature));
-            ResourceRows.Add(new StatusRow("系统 CPU", _snapshot?.Resources.SystemCpuPercent is { } cpu ? $"{cpu:F1}%" : "—"));
-            ResourceRows.Add(new StatusRow("物理内存", MemoryText));
-            ResourceRows.Add(new StatusRow("模型汇总", LoadedSummary));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.gpu"), GpuName, GpuAvailable ? null : snapshot.Resources.GpuError, GpuAvailable ? "ok" : "warn"));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.vram"), GpuUsedText));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.gpuUtil"), GpuAvailable ? $"{GpuUtilization:F0}%" : "—"));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.gpuTemp"), GpuTemperature));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.cpu"), _snapshot?.Resources.SystemCpuPercent is { } cpu ? $"{cpu:F1}%" : "—"));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.memory"), MemoryText));
+            ResourceRows.Add(new StatusRow(Loc.T("status.row.modelSummary"), LoadedSummary));
 
             Models.Clear();
             var definitions = Services.Models.All.ToDictionary(m => m.Id, StringComparer.OrdinalIgnoreCase);
@@ -221,7 +227,7 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
         }
         catch (Exception ex)
         {
-            SetError($"刷新运行状态失败：{ex.Message}");
+            SetError(Loc.T("status.status.refreshFailed", ex.Message));
         }
     }
 
@@ -236,7 +242,7 @@ public sealed class RuntimeStatusViewModel : PageViewModelBase
         var json = JsonSerializer.Serialize(snapshot, JsonSerialization.Options);
         if (ClipboardHelper.SetText(json))
         {
-            SetStatus("运行状态 JSON 已复制到剪贴板。");
+            SetStatus(Loc.T("status.status.jsonCopied"));
         }
     }
 }

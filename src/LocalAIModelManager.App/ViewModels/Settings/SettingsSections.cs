@@ -8,6 +8,10 @@ namespace LocalAIModelManager.App.ViewModels.Settings;
 /// <summary>
 /// The eight settings pages, as data. Every page owns one section of
 /// <see cref="AppSettings"/>; nothing is merged into a single mega page.
+///
+/// The descriptors are rebuilt on every access so that section titles, descriptions
+/// and field labels follow a runtime language switch. Nothing here is cached in a
+/// static field: caching would freeze the language the first time the page loaded.
 /// </summary>
 public static class SettingsSections
 {
@@ -20,9 +24,7 @@ public static class SettingsSections
     public const string Network = "network";
     public const string Advanced = "advanced";
 
-    private static readonly Lazy<IReadOnlyList<SettingsSection>> Sections = new(Build);
-
-    public static IReadOnlyList<SettingsSection> All => Sections.Value;
+    public static IReadOnlyList<SettingsSection> All => Build();
 
     public static SettingsSection Get(string key) =>
         All.FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase))
@@ -31,29 +33,48 @@ public static class SettingsSections
     public static bool IsDescriptorDriven(string key) =>
         key is not (InferenceEngine or ModelParameters);
 
+    /// <summary>
+    /// Selectable language codes. The option label is the native display name from
+    /// <see cref="Localizer.Languages"/>; the stored value is always the code.
+    /// </summary>
+    public static IReadOnlyList<string> LanguageChoices() =>
+        Localizer.Languages.Select(l => l.Code).ToList();
+
+    /// <summary>Display name for a stored language code.</summary>
+    public static string LanguageDisplay(string? code)
+    {
+        var normalized = Localizer.Normalize(code);
+        return Localizer.Languages.FirstOrDefault(l => l.Code == normalized)?.DisplayName ?? normalized;
+    }
+
+    /// <summary>Stored language code for one of the language option labels.</summary>
+    public static string LanguageCodeFor(string displayName) =>
+        Localizer.Languages.FirstOrDefault(l => l.DisplayName == displayName)?.Code
+        ?? Localizer.Normalize(displayName);
+
     private static IReadOnlyList<SettingsSection> Build() => new List<SettingsSection>
     {
         // ------------------------------------------------------------ General
         new()
         {
             Key = General,
-            Title = "常规",
-            Description = "启动行为、主题与托盘选项。所有模型在任何情况下都保持待机，不会随 Windows 启动自动加载。",
+            Title = Loc.T("page.settingsGeneral.title"),
+            Description = Loc.T("page.settingsGeneral.desc"),
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "startWithWindows",
-                    Label = "随 Windows 启动",
+                    Label = Loc.T("general.startWithWindows.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "写入 HKCU\\...\\Run。启动命令不带任何加载参数，重启后模型仍全部处于待机。",
+                    Help = Loc.T("general.startWithWindows.help"),
                     Read = s => Bool(s.General.StartWithWindows),
                     Write = (s, v) => s.General.StartWithWindows = Parse(v),
                 },
                 new()
                 {
                     Key = "startMinimized",
-                    Label = "启动时最小化到托盘",
+                    Label = Loc.T("general.startMinimized.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.General.StartMinimized),
                     Write = (s, v) => s.General.StartMinimized = Parse(v),
@@ -61,7 +82,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "closeToTray",
-                    Label = "关闭窗口时最小化到托盘",
+                    Label = Loc.T("general.closeToTray.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.General.CloseToTray),
                     Write = (s, v) => s.General.CloseToTray = Parse(v),
@@ -69,7 +90,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "minimizeToTray",
-                    Label = "最小化时隐藏到托盘",
+                    Label = Loc.T("general.minimizeToTray.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.General.MinimizeToTray),
                     Write = (s, v) => s.General.MinimizeToTray = Parse(v),
@@ -77,27 +98,40 @@ public static class SettingsSections
                 new()
                 {
                     Key = "confirmExit",
-                    Label = "退出前确认",
+                    Label = Loc.T("general.confirmExit.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "退出会卸载所有已加载模型并结束引擎进程。",
+                    Help = Loc.T("general.confirmExit.help"),
                     Read = s => Bool(s.General.ConfirmExit),
                     Write = (s, v) => s.General.ConfirmExit = Parse(v),
                 },
                 new()
                 {
                     Key = "theme",
-                    Label = "主题",
+                    Label = Loc.T("general.theme.label"),
                     Kind = SettingFieldKind.Choice,
                     Choices = new[] { "Dark", "Light" },
+                    Help = Loc.T("general.theme.help"),
                     Read = s => s.General.Theme,
                     Write = (s, v) => s.General.Theme = v,
                 },
                 new()
                 {
+                    // Options are the installed languages; the stored value is the code
+                    // (zh-CN / en-US / ja-JP / fr-FR) so the setting is not translated.
+                    Key = "language",
+                    Label = Loc.T("general.language.label"),
+                    Kind = SettingFieldKind.Choice,
+                    Choices = LanguageChoices(),
+                    Help = Loc.T("general.language.help"),
+                    Read = s => LanguageDisplay(s.General.Language),
+                    Write = (s, v) => s.General.Language = LanguageCodeFor(v),
+                },
+                new()
+                {
                     Key = "probeEnginesOnStartup",
-                    Label = "启动时探测引擎能力",
+                    Label = Loc.T("general.probeEnginesOnStartup.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "只运行引擎的 --help，不会加载任何模型。",
+                    Help = Loc.T("general.probeEnginesOnStartup.help"),
                     Read = s => Bool(s.General.ProbeEnginesOnStartup),
                     Write = (s, v) => s.General.ProbeEnginesOnStartup = Parse(v),
                 },
@@ -114,24 +148,26 @@ public static class SettingsSections
                         settings.General.StartWithWindows = false;
                         services.Settings.Update(s => s.General.StartWithWindows = false, persist: true);
                         throw new InvalidOperationException(
-                            $"无法写入开机启动项（HKCU\\...\\Run）：{error}。该设置已回滚为关闭。");
+                            Loc.T("general.error.startupWrite", error));
                     }
 
-                    services.Notify("已启用随 Windows 启动（不会自动加载模型）。");
+                    services.Notify(Loc.T("general.notify.startupEnabled"));
                 }
                 else if (!StartupRegistration.TrySetEnabled(false, executable, string.Empty, out var removeError))
                 {
-                    throw new InvalidOperationException($"无法移除开机启动项：{removeError}");
+                    throw new InvalidOperationException(Loc.T("general.error.startupRemove", removeError));
                 }
                 else
                 {
-                    services.Notify("已关闭随 Windows 启动。");
+                    services.Notify(Loc.T("general.notify.startupDisabled"));
                 }
             },
             Notes = services => new[]
             {
-                $"当前开机启动状态：{(StartupRegistration.IsEnabled() ? "已启用" : "未启用")}",
-                "Windows 重启后：管理器只启动网关，所有模型保持在待机状态。",
+                Loc.T(
+                    "general.note.startup",
+                    StartupRegistration.IsEnabled() ? Loc.T("general.note.enabled") : Loc.T("general.note.disabled")),
+                Loc.T("general.note.reboot"),
             },
         },
 
@@ -139,18 +175,18 @@ public static class SettingsSections
         new()
         {
             Key = Api,
-            Title = "API",
-            Description = "OpenAI 兼容网关的监听地址、端口与鉴权。默认只绑定回环地址。",
+            Title = Loc.T("page.settingsApi.title"),
+            Description = Loc.T("page.settingsApi.desc"),
             RequiresGatewayRestart = true,
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "host",
-                    Label = "监听地址",
+                    Label = Loc.T("api.host.label"),
                     Kind = SettingFieldKind.Choice,
                     Choices = new[] { ApiSettings.Loopback, "0.0.0.0" },
-                    Help = "127.0.0.1 = 仅本机；0.0.0.0 = 允许局域网访问（需显式开启）。",
+                    Help = Loc.T("api.host.help"),
                     SecurityRelevant = true,
                     Read = s => s.Api.Host,
                     Write = (s, v) => s.Api.Host = v,
@@ -158,7 +194,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "port",
-                    Label = "监听端口",
+                    Label = Loc.T("api.port.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 1,
                     Max = 65535,
@@ -168,9 +204,9 @@ public static class SettingsSections
                 new()
                 {
                     Key = "allowLan",
-                    Label = "允许局域网访问",
+                    Label = Loc.T("api.allowLan.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "必须在开启 API 密钥的前提下才能生效；否则网关会强制回退到回环地址。",
+                    Help = Loc.T("api.allowLan.help"),
                     SecurityRelevant = true,
                     Read = s => Bool(s.Api.AllowLanAccess),
                     Write = (s, v) => s.Api.AllowLanAccess = Parse(v),
@@ -178,7 +214,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "apiKeyEnabled",
-                    Label = "启用 API 密钥",
+                    Label = Loc.T("api.keyEnabled.label"),
                     Kind = SettingFieldKind.Bool,
                     SecurityRelevant = true,
                     Read = s => Bool(s.Api.ApiKeyEnabled),
@@ -187,9 +223,9 @@ public static class SettingsSections
                 new()
                 {
                     Key = "apiKey",
-                    Label = "API 密钥",
+                    Label = Loc.T("api.key.label"),
                     Kind = SettingFieldKind.Secret,
-                    Help = "客户端使用 Authorization: Bearer <API_KEY>。日志中永不记录完整密钥。",
+                    Help = Loc.T("api.key.help"),
                     SecurityRelevant = true,
                     Read = s => s.Api.ApiKey,
                     Write = (s, v) => s.Api.ApiKey = v.Trim(),
@@ -197,7 +233,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "requireKeyLocal",
-                    Label = "本机请求同样要求密钥",
+                    Label = Loc.T("api.requireKeyLocal.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.Api.RequireApiKeyForLocalhost),
                     Write = (s, v) => s.Api.RequireApiKeyForLocalhost = Parse(v),
@@ -205,7 +241,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "maxConcurrent",
-                    Label = "最大并发请求数",
+                    Label = Loc.T("api.maxConcurrent.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 1,
                     Max = 1024,
@@ -215,8 +251,8 @@ public static class SettingsSections
                 new()
                 {
                     Key = "requestTimeout",
-                    Label = "请求超时",
-                    Suffix = "秒",
+                    Label = Loc.T("api.requestTimeout.label"),
+                    Suffix = Loc.T("general.unit.seconds"),
                     Kind = SettingFieldKind.Number,
                     Min = 5,
                     Max = 86400,
@@ -226,24 +262,29 @@ public static class SettingsSections
                 new()
                 {
                     Key = "statusEndpoint",
-                    Label = "开放 /v1/internal/status",
+                    Label = Loc.T("api.statusEndpoint.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "始终位于 API 密钥之后。",
+                    Help = Loc.T("api.statusEndpoint.help"),
                     Read = s => Bool(s.Api.EnableStatusEndpoint),
                     Write = (s, v) => s.Api.EnableStatusEndpoint = Parse(v),
                 },
             },
             Notes = services => services.Current.Validate()
                 .Where(i => i.Section == "API" && i.Severity != ValidationSeverity.Info)
-                .Select(i => $"{(i.Severity == ValidationSeverity.Error ? "错误" : "警告")}：{i.Message}"),
+                .Select(i => Loc.T(
+                    "settings.validation.note",
+                    i.Severity == ValidationSeverity.Error
+                        ? Loc.T("settings.validation.error")
+                        : Loc.T("settings.validation.warning"),
+                    i.Message)),
         },
 
         // --------------------------------------------------- Inference engine
         new()
         {
             Key = InferenceEngine,
-            Title = "推理引擎",
-            Description = "注册、切换与升级推理引擎。引擎可独立替换，模型记录只引用引擎 ID。",
+            Title = Loc.T("page.settingsEngine.title"),
+            Description = Loc.T("page.settingsEngine.desc"),
             Fields = Array.Empty<SettingField>(),
         },
 
@@ -251,8 +292,8 @@ public static class SettingsSections
         new()
         {
             Key = ModelParameters,
-            Title = "模型参数",
-            Description = "参数的可见项由所安装引擎的 --help 输出决定，升级 llama.cpp 后会自动出现新参数。",
+            Title = Loc.T("page.settingsModelParameters.title"),
+            Description = Loc.T("page.settingsModelParameters.desc"),
             Fields = Array.Empty<SettingField>(),
         },
 
@@ -260,26 +301,26 @@ public static class SettingsSections
         new()
         {
             Key = Lifecycle,
-            Title = "生命周期",
-            Description = "按需加载、空闲卸载与显存不足时的驱逐策略。",
+            Title = Loc.T("page.settingsLifecycle.title"),
+            Description = Loc.T("page.settingsLifecycle.desc"),
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "idleTimeout",
-                    Label = "空闲卸载超时",
-                    Suffix = "秒",
+                    Label = Loc.T("lifecycle.idleTimeout.label"),
+                    Suffix = Loc.T("general.unit.seconds"),
                     Kind = SettingFieldKind.Number,
                     Min = 1,
                     Max = 86400,
-                    Help = "默认 300 秒（5 分钟）。超时后自动卸载模型并释放显存。",
+                    Help = Loc.T("lifecycle.idleTimeout.help"),
                     Read = s => s.Lifecycle.IdleTimeoutSeconds.ToString(),
                     Write = (s, v) => s.Lifecycle.IdleTimeoutSeconds = int.Parse(v),
                 },
                 new()
                 {
                     Key = "idleUnloadEnabled",
-                    Label = "启用空闲自动卸载",
+                    Label = Loc.T("lifecycle.idleUnloadEnabled.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.Lifecycle.IdleUnloadEnabled),
                     Write = (s, v) => s.Lifecycle.IdleUnloadEnabled = Parse(v),
@@ -287,18 +328,18 @@ public static class SettingsSections
                 new()
                 {
                     Key = "maxLoaded",
-                    Label = "同时加载的模型上限",
+                    Label = Loc.T("lifecycle.maxLoaded.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 1,
                     Max = 64,
-                    Help = "超出上限时按最近最少使用（LRU）驱逐空闲模型。",
+                    Help = Loc.T("lifecycle.maxLoaded.help"),
                     Read = s => s.Lifecycle.MaxLoadedModels.ToString(),
                     Write = (s, v) => s.Lifecycle.MaxLoadedModels = int.Parse(v),
                 },
                 new()
                 {
                     Key = "vramEviction",
-                    Label = "显存不足时驱逐空闲模型",
+                    Label = Loc.T("lifecycle.vramEviction.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.Lifecycle.VramEvictionEnabled),
                     Write = (s, v) => s.Lifecycle.VramEvictionEnabled = Parse(v),
@@ -306,7 +347,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "minFreeVram",
-                    Label = "触发驱逐的空闲显存阈值",
+                    Label = Loc.T("lifecycle.minFreeVram.label"),
                     Suffix = "MiB",
                     Kind = SettingFieldKind.Number,
                     Min = 0,
@@ -317,23 +358,23 @@ public static class SettingsSections
                 new()
                 {
                     Key = "shutdownGrace",
-                    Label = "关闭引擎的优雅等待时间",
-                    Suffix = "秒",
+                    Label = Loc.T("lifecycle.shutdownGrace.label"),
+                    Suffix = Loc.T("general.unit.seconds"),
                     Kind = SettingFieldKind.Number,
                     Min = 1,
                     Max = 600,
-                    Help = "超时后强制结束进程树；Job Object 保证不会留下孤儿进程。",
+                    Help = Loc.T("lifecycle.shutdownGrace.help"),
                     Read = s => s.Lifecycle.ShutdownGraceSeconds.ToString(),
                     Write = (s, v) => s.Lifecycle.ShutdownGraceSeconds = int.Parse(v),
                 },
                 new()
                 {
                     Key = "preload",
-                    Label = "启动时预加载模型",
+                    Label = Loc.T("lifecycle.preload.label"),
                     Kind = SettingFieldKind.ReadOnly,
-                    Help = "出于安全与可预期性，本管理器不支持开机预加载；模型始终先待机，首次请求时再加载。",
+                    Help = Loc.T("lifecycle.preload.help"),
                     Enforced = true,
-                    Read = _ => "始终关闭",
+                    Read = _ => Loc.T("lifecycle.preload.value"),
                 },
             },
         },
@@ -342,14 +383,14 @@ public static class SettingsSections
         new()
         {
             Key = Resources,
-            Title = "资源",
-            Description = "显存 / CPU 采样。仅在本机读取 nvidia-smi 与系统计数器，不联网。",
+            Title = Loc.T("page.settingsResources.title"),
+            Description = Loc.T("page.settingsResources.desc"),
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "monitorEnabled",
-                    Label = "启用资源监控",
+                    Label = Loc.T("resources.monitorEnabled.label"),
                     Kind = SettingFieldKind.Bool,
                     Read = s => Bool(s.Resources.MonitorEnabled),
                     Write = (s, v) => s.Resources.MonitorEnabled = Parse(v),
@@ -357,8 +398,8 @@ public static class SettingsSections
                 new()
                 {
                     Key = "pollInterval",
-                    Label = "采样间隔",
-                    Suffix = "毫秒",
+                    Label = Loc.T("resources.pollInterval.label"),
+                    Suffix = Loc.T("general.unit.milliseconds"),
                     Kind = SettingFieldKind.Number,
                     Min = 250,
                     Max = 60000,
@@ -368,7 +409,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "gpuIndex",
-                    Label = "主 GPU 索引",
+                    Label = Loc.T("resources.gpuIndex.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 0,
                     Max = 64,
@@ -378,34 +419,33 @@ public static class SettingsSections
                 new()
                 {
                     Key = "trackPerProcess",
-                    Label = "按进程统计显存占用",
+                    Label = Loc.T("resources.trackPerProcess.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "通过 nvidia-smi --query-compute-apps 关联 PID 与显存。",
+                    Help = Loc.T("resources.trackPerProcess.help"),
                     Read = s => Bool(s.Resources.TrackPerProcessVram),
                     Write = (s, v) => s.Resources.TrackPerProcessVram = Parse(v),
                 },
                 new()
                 {
                     Key = "autoTuneContext",
-                    Label = "自动调参的目标上下文",
-                    Suffix = "token",
+                    Label = Loc.T("resources.autoTuneContext.label"),
+                    Suffix = Loc.T("general.unit.tokens"),
                     Kind = SettingFieldKind.Number,
                     Min = 512,
                     Max = 1048576,
-                    Help = "自动调参按这个值配上下文，而不是「显存能塞多少就塞多少」。KV cache 按上下文一次性预留，" +
-                           "所以这个值直接决定显存占用：1.8B 模型在 8192 下 KV 约 0.5 GiB，在 131072 下约 8 GiB。默认 8192。",
+                    Help = Loc.T("resources.autoTuneContext.help"),
                     Read = s => s.Resources.AutoTuneContextSize.ToString(),
                     Write = (s, v) => s.Resources.AutoTuneContextSize = int.Parse(v),
                 },
                 new()
                 {
                     Key = "maxVramUsagePercent",
-                    Label = "单模型显存安全上限",
+                    Label = Loc.T("resources.maxVramUsage.label"),
                     Suffix = "%",
                     Kind = SettingFieldKind.Number,
                     Min = 20,
                     Max = 100,
-                    Help = "只作为安全阀：当目标上下文都放不下时才用它来收缩。不是「尽量用满」的目标值。默认 70%。",
+                    Help = Loc.T("resources.maxVramUsage.help"),
                     Read = s => s.Resources.MaxVramUsagePercent.ToString(),
                     Write = (s, v) => s.Resources.MaxVramUsagePercent = int.Parse(v),
                 },
@@ -416,13 +456,19 @@ public static class SettingsSections
                 var lines = new List<string>
                 {
                     snapshot.GpuAvailable
-                        ? $"GPU：{snapshot.PrimaryGpu?.Name}，已用 {snapshot.PrimaryGpu?.UsedBytes / (1024.0 * 1024 * 1024):F1} / {snapshot.PrimaryGpu?.TotalBytes / (1024.0 * 1024 * 1024):F1} GiB"
-                        : $"GPU：不可用（{snapshot.GpuError ?? "未检测到 nvidia-smi"}）",
+                        ? Loc.T(
+                            "resources.note.gpu",
+                            snapshot.PrimaryGpu?.Name,
+                            (snapshot.PrimaryGpu?.UsedBytes / (1024.0 * 1024 * 1024)).GetValueOrDefault().ToString("F1"),
+                            (snapshot.PrimaryGpu?.TotalBytes / (1024.0 * 1024 * 1024)).GetValueOrDefault().ToString("F1"))
+                        : Loc.T(
+                            "resources.note.gpuUnavailable",
+                            snapshot.GpuError ?? Loc.T("resources.note.gpuMissing")),
                 };
 
                 if (snapshot.SystemCpuPercent is { } cpu)
                 {
-                    lines.Add($"CPU 使用率：{cpu:F1}%");
+                    lines.Add(Loc.T("resources.note.cpu", cpu.ToString("F1")));
                 }
 
                 return lines;
@@ -433,24 +479,24 @@ public static class SettingsSections
         new()
         {
             Key = Network,
-            Title = "网络",
-            Description = "内部引擎端口与出站代理。内部端口永远只绑定回环地址，不对外暴露。",
+            Title = Loc.T("page.settingsNetwork.title"),
+            Description = Loc.T("page.settingsNetwork.desc"),
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "backendBindHost",
-                    Label = "引擎内部绑定地址",
+                    Label = Loc.T("network.backendBindHost.label"),
                     Kind = SettingFieldKind.ReadOnly,
                     Enforced = true,
                     SecurityRelevant = true,
-                    Help = "强制为 127.0.0.1，即使开启局域网访问也不会改变。",
+                    Help = Loc.T("network.backendBindHost.help"),
                     Read = _ => ApiSettings.Loopback,
                 },
                 new()
                 {
                     Key = "portRangeStart",
-                    Label = "内部端口范围起始",
+                    Label = Loc.T("network.portRangeStart.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 1024,
                     Max = 65500,
@@ -460,7 +506,7 @@ public static class SettingsSections
                 new()
                 {
                     Key = "portRangeEnd",
-                    Label = "内部端口范围结束",
+                    Label = Loc.T("network.portRangeEnd.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 1025,
                     Max = 65535,
@@ -470,22 +516,22 @@ public static class SettingsSections
                 new()
                 {
                     Key = "httpProxy",
-                    Label = "出站 HTTP 代理",
-                    Help = "仅用于引擎自身的下载类功能；管理器内部到引擎的流量永不使用代理。",
+                    Label = Loc.T("network.httpProxy.label"),
+                    Help = Loc.T("network.httpProxy.help"),
                     Read = s => s.Network.HttpProxy,
                     Write = (s, v) => s.Network.HttpProxy = v,
                 },
                 new()
                 {
                     Key = "noProxy",
-                    Label = "代理排除列表",
+                    Label = Loc.T("network.noProxy.label"),
                     Read = s => s.Network.NoProxy,
                     Write = (s, v) => s.Network.NoProxy = v,
                 },
             },
             Notes = _ => new[]
             {
-                "内部端口仅在 127.0.0.1 上监听；网关是唯一对外的监听者。",
+                Loc.T("network.note.internal"),
             },
         },
 
@@ -493,14 +539,14 @@ public static class SettingsSections
         new()
         {
             Key = Advanced,
-            Title = "高级",
-            Description = "日志、请求上限与实验性开关。日志默认只保存在内存中。",
+            Title = Loc.T("page.settingsAdvanced.title"),
+            Description = Loc.T("page.settingsAdvanced.desc"),
             Fields = new List<SettingField>
             {
                 new()
                 {
                     Key = "logLevel",
-                    Label = "日志级别",
+                    Label = Loc.T("advanced.logLevel.label"),
                     Kind = SettingFieldKind.Choice,
                     Choices = new[] { "Trace", "Debug", "Information", "Warning", "Error", "Critical" },
                     Read = s => s.Advanced.LogLevel,
@@ -509,28 +555,28 @@ public static class SettingsSections
                 new()
                 {
                     Key = "logBufferSize",
-                    Label = "内存日志条数上限",
+                    Label = Loc.T("advanced.logBufferSize.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 100,
                     Max = 200000,
-                    Help = "环形缓冲区，超出后覆盖最旧的记录。",
+                    Help = Loc.T("advanced.logBufferSize.help"),
                     Read = s => s.Advanced.LogBufferSize.ToString(),
                     Write = (s, v) => s.Advanced.LogBufferSize = int.Parse(v),
                 },
                 new()
                 {
                     Key = "logPromptContent",
-                    Label = "记录完整提示词与输出",
+                    Label = Loc.T("advanced.logPromptContent.label"),
                     Kind = SettingFieldKind.Bool,
                     SecurityRelevant = true,
-                    Help = "默认关闭：开启后用户内容会进入内存日志缓冲区。",
+                    Help = Loc.T("advanced.logPromptContent.help"),
                     Read = s => Bool(s.Advanced.LogPromptContent),
                     Write = (s, v) => s.Advanced.LogPromptContent = Parse(v),
                 },
                 new()
                 {
                     Key = "logContentMaxChars",
-                    Label = "内容日志截断长度",
+                    Label = Loc.T("advanced.logContentMaxChars.label"),
                     Kind = SettingFieldKind.Number,
                     Min = 0,
                     Max = 100000,
@@ -540,8 +586,8 @@ public static class SettingsSections
                 new()
                 {
                     Key = "maxRequestBytes",
-                    Label = "请求体大小上限",
-                    Suffix = "字节",
+                    Label = Loc.T("advanced.maxRequestBytes.label"),
+                    Suffix = Loc.T("general.unit.bytes"),
                     Kind = SettingFieldKind.Number,
                     Min = 1024,
                     Max = 1073741824,
@@ -551,34 +597,34 @@ public static class SettingsSections
                 new()
                 {
                     Key = "captureBackendOutput",
-                    Label = "捕获引擎标准输出",
+                    Label = Loc.T("advanced.captureBackendOutput.label"),
                     Kind = SettingFieldKind.Bool,
-                    Help = "引擎输出只进入内存日志缓冲区，不会写入磁盘。",
+                    Help = Loc.T("advanced.captureBackendOutput.help"),
                     Read = s => Bool(s.Advanced.EnableBackendOutputCapture),
                     Write = (s, v) => s.Advanced.EnableBackendOutputCapture = Parse(v),
                 },
                 new()
                 {
                     Key = "allowLanWithoutKey",
-                    Label = "允许无密钥的局域网访问",
+                    Label = Loc.T("advanced.allowLanWithoutKey.label"),
                     Kind = SettingFieldKind.Bool,
                     SecurityRelevant = true,
-                    Help = "默认关闭。开启后，任何能访问该端口的主机都可以调用模型。",
+                    Help = Loc.T("advanced.allowLanWithoutKey.help"),
                     Read = s => Bool(s.Advanced.AllowLanWithoutApiKey),
                     Write = (s, v) => s.Advanced.AllowLanWithoutApiKey = Parse(v),
                 },
                 new()
                 {
                     Key = "configDirectory",
-                    Label = "配置目录",
+                    Label = Loc.T("advanced.configDirectory.label"),
                     Kind = SettingFieldKind.ReadOnly,
                     Read = _ => string.Empty,
                 },
             },
             Notes = services => new[]
             {
-                $"配置文件：settings.json / models.json（{services.ConfigDirectory}）",
-                "日志默认仅驻留内存；只有点击“保存”才会写入磁盘。",
+                Loc.T("advanced.note.files", services.ConfigDirectory),
+                Loc.T("advanced.note.memory"),
             },
         },
     };

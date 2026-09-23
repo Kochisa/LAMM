@@ -29,7 +29,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = new NotifyIcon
         {
             Icon = _icon,
-            Text = "Local AI Model Manager",
+            Text = Loc.T("app.title"),
             Visible = true,
         };
 
@@ -56,28 +56,30 @@ public sealed class TrayIconService : IDisposable
     {
         menu.Items.Clear();
 
-        var showItem = new ToolStripMenuItem("显示主窗口");
+        var showItem = new ToolStripMenuItem(Loc.T("app.tray.showWindow"));
         showItem.Click += (_, _) => _shell.RequestShow();
         menu.Items.Add(showItem);
 
-        var hideItem = new ToolStripMenuItem("隐藏到托盘");
+        var hideItem = new ToolStripMenuItem(Loc.T("app.tray.hideWindow"));
         hideItem.Click += (_, _) => _shell.RequestHide();
         menu.Items.Add(hideItem);
 
         menu.Items.Add(new ToolStripSeparator());
 
         var gatewayItem = new ToolStripMenuItem(
-            _services.Gateway.IsRunning ? $"网关：{_services.Gateway.BaseUrl}" : "网关：已停止")
+            _services.Gateway.IsRunning
+                ? Loc.T("app.tray.gatewayRunning", _services.Gateway.BaseUrl)
+                : Loc.T("app.tray.gatewayStopped"))
         {
             Enabled = false,
         };
         menu.Items.Add(gatewayItem);
 
-        var modelsMenu = new ToolStripMenuItem("模型");
+        var modelsMenu = new ToolStripMenuItem(Loc.T("nav.page.models"));
         var models = _services.Models.All;
         if (models.Count == 0)
         {
-            modelsMenu.DropDownItems.Add(new ToolStripMenuItem("（尚未注册模型）") { Enabled = false });
+            modelsMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("app.tray.noModels")) { Enabled = false });
         }
         else
         {
@@ -87,25 +89,25 @@ public sealed class TrayIconService : IDisposable
                 var stateLabel = Labels.ModelState(status?.State ?? ModelState.Standby);
                 var modelItem = new ToolStripMenuItem($"{model.DisplayName} — {stateLabel}");
 
-                var start = new ToolStripMenuItem("启动 / 加载");
+                var start = new ToolStripMenuItem(Loc.T("app.tray.startModel"));
                 start.Click += (_, _) => RunModelCommand(model.Id, start: true);
                 modelItem.DropDownItems.Add(start);
 
-                var stop = new ToolStripMenuItem("停止 / 卸载");
+                var stop = new ToolStripMenuItem(Loc.T("app.tray.stopModel"));
                 stop.Click += (_, _) => RunModelCommand(model.Id, start: false);
                 modelItem.DropDownItems.Add(stop);
 
-                var restart = new ToolStripMenuItem("重启");
+                var restart = new ToolStripMenuItem(Loc.T("models.toolbar.restart"));
                 restart.Click += async (_, _) =>
                 {
                     try
                     {
                         await _services.Lifecycle.RestartAsync(model.Id, CancellationToken.None).ConfigureAwait(true);
-                        _services.Notify($"模型 {model.Id} 已重启。");
+                        _services.Notify(Loc.T("models.status.restarted", model.Id));
                     }
                     catch (Exception ex)
                     {
-                        _services.Notify($"重启 {model.Id} 失败：{ex.Message}");
+                        _services.NotifyFailure(Loc.T("app.tray.restartFailed", model.Id, ex.Message));
                     }
                 };
                 modelItem.DropDownItems.Add(restart);
@@ -116,28 +118,28 @@ public sealed class TrayIconService : IDisposable
 
         menu.Items.Add(modelsMenu);
 
-        var unloadAll = new ToolStripMenuItem("卸载全部模型");
+        var unloadAll = new ToolStripMenuItem(Loc.T("status.toolbar.unloadAll"));
         unloadAll.Click += async (_, _) =>
         {
             try
             {
                 await _services.Lifecycle.UnloadAllAsync(CancellationToken.None).ConfigureAwait(true);
-                _services.Notify("已卸载全部模型并释放显存。");
+                _services.Notify(Loc.T("models.status.unloadedAll"));
             }
             catch (Exception ex)
             {
-                _services.Notify($"卸载全部模型失败：{ex.Message}");
+                _services.NotifyFailure(Loc.T("app.tray.unloadAllFailed", ex.Message));
             }
         };
         menu.Items.Add(unloadAll);
 
         menu.Items.Add(new ToolStripSeparator());
 
-        var restartGateway = new ToolStripMenuItem("按当前设置重启网关");
+        var restartGateway = new ToolStripMenuItem(Loc.T("app.tray.restartGateway"));
         restartGateway.Click += (_, _) => _ = _shell.RestartGatewayAsync();
         menu.Items.Add(restartGateway);
 
-        var openConfig = new ToolStripMenuItem("打开配置目录");
+        var openConfig = new ToolStripMenuItem(Loc.T("app.tray.openConfigDir"));
         openConfig.Click += (_, _) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
             FileName = "explorer.exe",
@@ -148,7 +150,7 @@ public sealed class TrayIconService : IDisposable
 
         menu.Items.Add(new ToolStripSeparator());
 
-        var exit = new ToolStripMenuItem("退出");
+        var exit = new ToolStripMenuItem(Loc.T("app.tray.exit"));
         exit.Click += (_, _) => _shell.RequestExit();
         menu.Items.Add(exit);
     }
@@ -162,17 +164,19 @@ public sealed class TrayIconService : IDisposable
                 if (start)
                 {
                     await _services.Lifecycle.StartAsync(modelId, CancellationToken.None).ConfigureAwait(false);
-                    _services.Notify($"模型 {modelId} 已加载。");
+                    _services.Notify(Loc.T("models.status.loaded", modelId));
                 }
                 else
                 {
                     await _services.Lifecycle.StopAsync(modelId, CancellationToken.None).ConfigureAwait(false);
-                    _services.Notify($"模型 {modelId} 已卸载，显存已释放。");
+                    _services.Notify(Loc.T("models.status.unloaded", modelId));
                 }
             }
             catch (Exception ex)
             {
-                _services.Notify($"{(start ? "启动" : "停止")} {modelId} 失败：{ex.Message}");
+                _services.NotifyFailure(start
+                    ? Loc.T("app.tray.startFailed", modelId, ex.Message)
+                    : Loc.T("app.tray.stopFailed", modelId, ex.Message));
             }
         });
     }

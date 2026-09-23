@@ -2,6 +2,7 @@ using LocalAIModelManager.Core.Backends;
 using LocalAIModelManager.Core.Configuration;
 using LocalAIModelManager.Core.Gateway;
 using LocalAIModelManager.Core.Lifecycle;
+using LocalAIModelManager.Core.Localization;
 using LocalAIModelManager.Core.Logging;
 using LocalAIModelManager.Core.Models;
 using LocalAIModelManager.Core.Processes;
@@ -164,7 +165,7 @@ public sealed class AppRuntime : IAsyncDisposable
             await Gateway.StartAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        Logs.Info("runtime", $"gateway restarted from current settings: {Gateway.BaseUrl}");
+        Logs.Info("runtime", Loc.T("log.runtime.gatewayRestarted", Gateway.BaseUrl));
     }
 
     public static AppRuntime Create(AppRuntimeOptions? options = null)
@@ -199,9 +200,8 @@ public sealed class AppRuntime : IAsyncDisposable
         _started = true;
         var settings = Settings.Current;
 
-        Logs.Info("runtime", $"Local AI Model Manager starting (config: {ConfigDirectory})");
-        Logs.Info("runtime",
-            $"registered models: {Models.Count}; loading behaviour: none (all models start in standby)");
+        Logs.Info("runtime", Loc.T("log.runtime.starting", ConfigDirectory));
+        Logs.Info("runtime", Loc.T("log.runtime.modelsRegistered", Models.Count));
 
         foreach (var issue in settings.Validate())
         {
@@ -221,8 +221,7 @@ public sealed class AppRuntime : IAsyncDisposable
 
         if (!JobObject.IsAvailable)
         {
-            Logs.Warn("runtime",
-                $"the Windows job object is unavailable ({JobObject.LastError}); orphan prevention falls back to explicit shutdown");
+            Logs.Warn("runtime", Loc.T("log.runtime.jobUnavailable", JobObject.LastError));
         }
 
         if (settings.Resources.MonitorEnabled && _options.StartResourceMonitor)
@@ -247,12 +246,12 @@ public sealed class AppRuntime : IAsyncDisposable
             await Lifecycle.StartIdleMonitorAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        Logs.Info("runtime", "manager is ready; models will be loaded on demand");
+        Logs.Info("runtime", Loc.T("log.runtime.ready"));
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        Logs.Info("runtime", "shutting down: unloading models and stopping engines");
+        Logs.Info("runtime", Loc.T("log.runtime.shutdown"));
 
         await Lifecycle.UnloadAllAsync(cancellationToken).ConfigureAwait(false);
         await Lifecycle.DisposeAsync().ConfigureAwait(false);
@@ -280,7 +279,7 @@ public sealed class AppRuntime : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Logs.Warn("runtime", "error during shutdown", ex);
+            Logs.Warn("runtime", Loc.T("log.runtime.shutdownFailed"), ex);
         }
 
         await Gateway.DisposeAsync().ConfigureAwait(false);
@@ -338,14 +337,14 @@ public sealed class AppRuntime : IAsyncDisposable
 
         foreach (var engine in engines.Where(e => e.HasGpuDevice is false))
         {
+            var detail = gpuOffloadRequested
+                ? Loc.T("validation.engineNoGpuWithOffload")
+                : Loc.T("validation.engineNoGpuCpuOnly");
+
             issues.Add(new ValidationIssue(
                 gpuOffloadRequested ? ValidationSeverity.Warning : ValidationSeverity.Info,
                 "Inference Engine",
-                $"引擎“{engine.Name}”报告没有任何可用的 GPU 设备（llama-server --list-devices 返回空）。" +
-                (gpuOffloadRequested
-                    ? "当前默认参数要求 GPU 卸载，但该请求会被忽略，模型只能在 CPU 上运行。" +
-                      "请确认它是 CUDA/Vulkan 版本，并且 CUDA 版本的运行时 DLL 已解压到 llama-server.exe 同目录。"
-                    : "该引擎只能使用 CPU。")));
+                Loc.T("validation.engineNoGpu", engine.Name, detail)));
         }
 
         return issues;
@@ -385,12 +384,12 @@ public sealed class AppRuntime : IAsyncDisposable
                 var capabilities = Adapters.Get(engine.AdapterKind).Inspect(engine, forceRefresh);
                 Logs.Info("engine",
                     capabilities.IsAvailable
-                        ? $"engine '{engine.Id}' probed: version={capabilities.Version ?? "unknown"}, {capabilities.Parameters.Count} parameters"
-                        : $"engine '{engine.Id}' probe failed: {capabilities.Error}");
+                        ? Loc.T("log.engine.probeOk", engine.Id, capabilities.Version ?? "unknown", capabilities.Parameters.Count)
+                        : Loc.T("log.engine.probeFailed", engine.Id, capabilities.Error));
             }
             catch (Exception ex)
             {
-                Logs.Warn("engine", $"engine '{engine.Id}' probe threw", ex);
+                Logs.Warn("engine", Loc.T("log.engine.probeThrew", engine.Id), ex);
             }
         }
     }
@@ -410,7 +409,7 @@ public sealed class AppRuntime : IAsyncDisposable
                 }
                 catch (Exception ex)
                 {
-                    Logs.Debug("engine", $"capability read failed for '{engine.Id}': {ex.Message}");
+                    Logs.Debug("engine", Loc.T("log.engine.capabilityReadFailed", engine.Id, ex.Message));
                 }
             }
 
@@ -507,6 +506,6 @@ public sealed class AppRuntime : IAsyncDisposable
             settings.Engines.SelectedEngineId = seeded[0].Id;
         });
 
-        Logs.Info("engine", $"registered {seeded.Count} engine(s): {string.Join(", ", seeded.Select(s => s.Id))}");
+        Logs.Info("engine", Loc.T("log.engine.registered", seeded.Count, string.Join(", ", seeded.Select(s => s.Id))));
     }
 }

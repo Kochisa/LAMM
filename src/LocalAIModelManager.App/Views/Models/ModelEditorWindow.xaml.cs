@@ -28,7 +28,7 @@ public partial class ModelEditorWindow : System.Windows.Window
 
         InitializeComponent();
         DataContext = this;
-        Title = _isNew ? "添加模型" : $"编辑模型 - {_model.DisplayName}";
+        Title = _isNew ? Loc.T("editor.model.title.new") : Loc.T("editor.model.title.edit", _model.DisplayName);
 
         IdBox.Text = _model.Id;
         DisplayNameBox.Text = _model.DisplayName;
@@ -104,15 +104,15 @@ public partial class ModelEditorWindow : System.Windows.Window
 
         if (rows.Count > 0)
         {
-            Groups.Add(new ParameterGroupViewModel("常用参数", rows));
+            Groups.Add(new ParameterGroupViewModel(Loc.T("params.section.common"), rows));
         }
 
         AdditionalArgumentsText = string.Join(Environment.NewLine, _model.AdditionalArguments);
 
         var globals = _services.Current.ModelParameters.Defaults;
         GlobalHint.Text = globals.Count == 0
-            ? "未设置任何参数：引擎按自身默认值运行（llama.cpp 默认 -ngl 0，即纯 CPU）。"
-            : "全局默认值也会生效：" + string.Join("，", globals.Select(g => $"{g.Key}={g.Value}"));
+            ? Loc.T("editor.model.globalsNone")
+            : Loc.T("editor.model.globalsPresent", string.Join("，", globals.Select(g => $"{g.Key}={g.Value}")));
         GlobalHint.Visibility = System.Windows.Visibility.Visible;
     }
 
@@ -120,8 +120,9 @@ public partial class ModelEditorWindow : System.Windows.Window
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "选择模型文件",
-            Filter = "GGUF 模型 (*.gguf)|*.gguf|所有文件 (*.*)|*.*",
+            Title = Loc.T("editor.engine.pickModel"),
+            Filter = Loc.T("editor.filter.gguf") + " (*.gguf)|*.gguf|"
+                     + Loc.T("editor.filter.allFiles") + " (*.*)|*.*",
             CheckFileExists = true,
         };
 
@@ -141,7 +142,7 @@ public partial class ModelEditorWindow : System.Windows.Window
 
             // Read the model's own metadata and show it, but do NOT set any parameter:
             // an imported model must start with zero custom inference parameters. The
-            // user can press 按显存自动计算 if they want suggestions.
+            // user can press the auto-tune button if they want suggestions.
             await ShowMetadataAsync(dialog.FileName).ConfigureAwait(true);
         }
     }
@@ -153,7 +154,7 @@ public partial class ModelEditorWindow : System.Windows.Window
             var metadata = await Task.Run(() => Core.Models.GgufMetadataReader.TryRead(path)).ConfigureAwait(true);
             if (metadata is null)
             {
-                AutoTuneSummary.Text = "无法读取该文件的 GGUF 元数据（不是 GGUF，或文件不完整）。参数保持为空。";
+                AutoTuneSummary.Text = Loc.T("editor.model.metadataNone");
                 AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
                 return;
             }
@@ -166,33 +167,34 @@ public partial class ModelEditorWindow : System.Windows.Window
 
             if (metadata.BlockCount is { } layers)
             {
-                parts.Add($"{layers} 层");
+                parts.Add(Loc.T("autotune.meta.layers", layers));
             }
 
             if (metadata.EffectiveHeadCountKv is { } kvHeads)
             {
-                parts.Add($"{kvHeads} 个 KV 头");
+                parts.Add(Loc.T("autotune.meta.kvHeads", kvHeads));
             }
 
             if (metadata.ContextLength is { } trained)
             {
-                parts.Add($"训练上下文 {trained}");
+                parts.Add(Loc.T("autotune.meta.trainedContext", trained));
             }
 
-            parts.Add($"权重 {metadata.FileSizeBytes / (1024.0 * 1024 * 1024):F2} GiB");
+            parts.Add(Loc.T("autotune.meta.weights", (metadata.FileSizeBytes / (1024.0 * 1024 * 1024)).ToString("F2")));
 
             var kvLine = metadata.KvBytesPerToken() is { } kv
-                ? $" KV cache 约 {kv / 1024.0:F1} KB/token（未设 --ctx-size 时按训练上下文一次性预留）。"
+                ? Loc.T("editor.model.metadataKv", (kv / 1024.0).ToString("F1"))
                 : string.Empty;
 
-            AutoTuneSummary.Text =
-                "模型元数据：" + string.Join(" · ", parts) + "。" + kvLine
-                + Environment.NewLine + "未设置任何参数（未勾选 = 不下发）。需要建议值请点“按显存自动计算”。";
+            AutoTuneSummary.Text = Loc.T(
+                "editor.model.metadata",
+                string.Join(" · ", parts),
+                kvLine + Environment.NewLine + Loc.T("editor.model.metadataNotSet"));
             AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
         }
         catch (Exception ex)
         {
-            AutoTuneSummary.Text = $"读取模型元数据失败：{ex.Message}";
+            AutoTuneSummary.Text = Loc.T("editor.model.metadataFailed", ex.Message);
             AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
         }
     }
@@ -205,7 +207,7 @@ public partial class ModelEditorWindow : System.Windows.Window
         var path = FilePathBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            AutoTuneSummary.Text = "请先选择存在的模型文件，然后才能自动计算参数。";
+            AutoTuneSummary.Text = Loc.T("editor.model.needFileFirst");
             AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
             return;
         }
@@ -235,7 +237,7 @@ public partial class ModelEditorWindow : System.Windows.Window
         }
         catch (Exception ex)
         {
-            AutoTuneSummary.Text = $"自动调参失败：{ex.Message}";
+            AutoTuneSummary.Text = Loc.T("editor.model.autotuneFailed", ex.Message);
             AutoTuneSummary.Visibility = System.Windows.Visibility.Visible;
         }
         finally
@@ -260,30 +262,30 @@ public partial class ModelEditorWindow : System.Windows.Window
         {
             if (string.IsNullOrWhiteSpace(id))
             {
-                errors.Add("模型 ID 不能为空。");
+                errors.Add(Loc.T("editor.model.error.idRequired"));
             }
             else if (!System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9._-]{1,96}$"))
             {
-                errors.Add("模型 ID 只能包含字母、数字、点、短横线和下划线。");
+                errors.Add(Loc.T("editor.model.error.idCharset"));
             }
             else if (_services.Models.Exists(id))
             {
-                errors.Add($"模型 ID “{id}” 已存在。");
+                errors.Add(Loc.T("editor.model.error.idTaken", id));
             }
         }
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            errors.Add("请选择模型文件。");
+            errors.Add(Loc.T("editor.model.error.fileRequired"));
         }
         else if (!File.Exists(filePath))
         {
-            errors.Add($"模型文件不存在：{filePath}");
+            errors.Add(Loc.T("editor.model.error.fileMissing", filePath));
         }
 
         if (EngineBox.SelectedItem is null)
         {
-            errors.Add("请选择推理引擎。");
+            errors.Add(Loc.T("editor.model.error.engineRequired"));
         }
 
         if (errors.Count > 0)
